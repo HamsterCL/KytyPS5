@@ -245,7 +245,7 @@ KYTY_HW_CTX_PARSER(HwCtxSetAaSampleControl) {
 
 	uint32_t count = 1;
 
-	if (dw >= 20 && buffer[16] == 0xc0026900 && buffer[17] == Pm4::PA_SC_CENTROID_PRIORITY_0) {
+	if (dw >= 21 && buffer[16] == 0xc0026900 && buffer[17] == Pm4::PA_SC_CENTROID_PRIORITY_0) {
 		count = 20;
 
 		HW::AaSampleControl r;
