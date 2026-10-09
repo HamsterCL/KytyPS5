@@ -75,6 +75,26 @@ struct File {
 	Common::Mutex                       mutex;
 	std::vector<uint8_t>                dirents;
 	uint64_t                            dents_offset;
+	// Guarded by FileDescriptors::m_mutex. Delays the destructor started by
+	// DeleteDescriptor() until every GetFile() caller has released its
+	// reference, so a concurrent Close() can never free a File another
+	// thread is still reading from or writing to.
+	int                                  ref_count      = 0;
+	bool                                 pending_delete = false;
+};
+
+// RAII helper: releases a File obtained from FileDescriptors::GetFile() when
+// it goes out of scope, on every return path. Safe to construct with file ==
+// nullptr (GetFile() lookup miss).
+class FileGuard {
+public:
+	explicit FileGuard(File* file) : m_file(file) {}
+	~FileGuard();
+
+	KYTY_CLASS_NO_COPY(FileGuard);
+
+private:
+	File* m_file;
 };
 
 class FileDescriptors {
@@ -88,7 +108,8 @@ public:
 	void  DeleteDescriptor(int d);
 	File* GetFile(int d);
 	File* GetFile(const std::filesystem::path& real_name);
-	void  CloseAll();
+	void  ReleaseFile(File* file);
+	bool  CloseAll();
 
 private:
 	std::vector<File*> m_files;
@@ -97,6 +118,13 @@ private:
 
 static MountPoints*     g_mount_points = nullptr;
 static FileDescriptors* g_files        = nullptr;
+
+// Releases the pinned File (if any) back to the descriptor table; no-op after Shutdown().
+FileGuard::~FileGuard() {
+	if (g_files != nullptr) {
+		g_files->ReleaseFile(m_file);
+	}
+}
 
 static bool IsRandomDevice(const std::string& path) {
 	return path == "/dev/random" || path == "/dev/urandom";
@@ -197,6 +225,7 @@ int FileDescriptors::CreateDescriptor() {
 	return static_cast<int>(m_files.size()) + DESCRIPTOR_MIN - 1;
 }
 
+// Unregisters descriptor d; frees the File now, or defers it to ReleaseFile() while other threads still hold a reference.
 void FileDescriptors::DeleteDescriptor(int d) {
 	Common::LockGuard lock(m_mutex);
 
@@ -205,33 +234,77 @@ void FileDescriptors::DeleteDescriptor(int d) {
 	EXIT_IF(index >= m_files.size());
 	EXIT_IF(m_files[index] == nullptr);
 	EXIT_IF(m_files[index]->opened);
+	EXIT_IF(m_files[index]->pending_delete);
+
+	auto* file            = m_files[index];
+	file->pending_delete = true;
+
+	if (file->ref_count > 0) {
+		// Still in use by a GetFile() caller on another thread; ReleaseFile()
+		// will finish the deletion once the last reference goes away.
+		return;
+	}
+
+	m_files[index] = nullptr;
 
 #if KYTY_PLATFORM != KYTY_PLATFORM_WINDOWS
 	// Close host files opened before a failed descriptor setup.
-	m_files[index]->f.Close();
+	file->f.Close();
 #endif
 
-	delete m_files[index];
-	m_files[index] = nullptr;
+	delete file;
 }
 
+// Looks up the File for descriptor d and pins it (ref_count++). Returns nullptr if the descriptor is
+// invalid or being deleted; callers must release it via FileGuard.
 File* FileDescriptors::GetFile(int d) {
 	Common::LockGuard lock(m_mutex);
 
 	auto index = static_cast<size_t>(d - DESCRIPTOR_MIN);
 
-	if (index >= m_files.size()) {
+	if (index >= m_files.size() || m_files[index] == nullptr || m_files[index]->pending_delete) {
 		return nullptr;
 	}
 
+	m_files[index]->ref_count++;
 	return m_files[index];
 }
 
+// Drops one reference taken by GetFile(); frees the File if it was marked pending_delete and this was the last reference.
+void FileDescriptors::ReleaseFile(File* file) {
+	if (file == nullptr) {
+		return;
+	}
+
+	Common::LockGuard lock(m_mutex);
+
+	EXIT_IF(file->ref_count <= 0);
+
+	if (--file->ref_count != 0 || !file->pending_delete) {
+		return;
+	}
+
+	for (auto& f: m_files) {
+		if (f == file) {
+			f = nullptr;
+			break;
+		}
+	}
+
+#if KYTY_PLATFORM != KYTY_PLATFORM_WINDOWS
+	file->f.Close();
+#endif
+
+	delete file;
+}
+
+// Finds an open File by host path and pins it (ref_count++). Skips files pending deletion; returns nullptr if none.
 File* FileDescriptors::GetFile(const std::filesystem::path& real_name) {
 	Common::LockGuard lock(m_mutex);
 
 	for (auto* f: m_files) {
-		if (f != nullptr && f->real_name == real_name) {
+		if (f != nullptr && !f->pending_delete && f->real_name == real_name) {
+			f->ref_count++;
 			return f;
 		}
 	}
@@ -239,18 +312,31 @@ File* FileDescriptors::GetFile(const std::filesystem::path& real_name) {
 	return nullptr;
 }
 
-void FileDescriptors::CloseAll() {
+// Returns true if every file was released; false if some are still pinned by
+// a GetFile() caller on another thread. Those are only marked pending_delete
+// and are freed by the last ReleaseFile(), so this object must outlive them.
+bool FileDescriptors::CloseAll() {
 	Common::LockGuard lock(m_mutex);
 
+	bool all_released = true;
+
 	for (auto& f: m_files) {
-		if (f != nullptr) {
-			if (f->opened) {
-				f->f.Close();
-			}
-			delete f;
-			f = nullptr;
+		if (f == nullptr) {
+			continue;
 		}
+		if (f->ref_count > 0) {
+			f->pending_delete = true;
+			all_released      = false;
+			continue;
+		}
+		if (f->opened) {
+			f->f.Close();
+		}
+		delete f;
+		f = nullptr;
 	}
+
+	return all_released;
 }
 
 void MountPoints::Mount(const std::filesystem::path& folder, const std::string& point) {
@@ -373,18 +459,28 @@ void Initialize() {
 	g_files        = new FileDescriptors;
 }
 
-void EmergencyShutdown() {
-	if (g_files != nullptr) {
-		g_files->CloseAll();
-	}
+// Closes every descriptor (if the table exists). Returns false if some files are still pinned by other threads.
+static bool CloseAllFiles() {
+	return g_files == nullptr || g_files->CloseAll();
 }
 
+// Closes all open files without destroying the descriptor table.
+void EmergencyShutdown() {
+	CloseAllFiles();
+}
+
+// Closes all files and destroys the file system state. The descriptor table is kept alive if in-flight calls still hold files.
 void Shutdown() {
-	EmergencyShutdown();
-	delete g_files;
-	delete g_mount_points;
-	g_files        = nullptr;
-	g_mount_points = nullptr;
+	// If a guest thread is still inside a file call, keep g_files alive (leak
+	// it at process teardown) so its FileGuard can still release the File.
+	// KernelOpen() & co. also use g_mount_points between GetFile() and
+	// ReleaseFile(), so keep it alive in the same case.
+	if (CloseAllFiles()) {
+		delete g_files;
+		g_files = nullptr;
+		delete g_mount_points;
+		g_mount_points = nullptr;
+	}
 }
 
 void Mount(const std::filesystem::path& folder, const std::string& point) {
@@ -402,6 +498,7 @@ std::filesystem::path GetRealFilename(const std::string& mounted_file_name) {
 	return g_mount_points->ResolvePath(mounted_file_name);
 }
 
+// Opens a guest path and returns a descriptor; the File is pinned with a FileGuard while being set up.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 int KYTY_SYSV_ABI KernelOpen(const char* path, int flags, uint16_t mode) {
 	PRINT_NAME();
@@ -447,6 +544,7 @@ int KYTY_SYSV_ABI KernelOpen(const char* path, int flags, uint16_t mode) {
 
 	int   descriptor = g_files->CreateDescriptor();
 	auto* file       = g_files->GetFile(descriptor);
+	FileGuard file_guard(file);
 
 	EXIT_IF(file == nullptr || file->opened || file->directory);
 
@@ -554,6 +652,7 @@ int KYTY_SYSV_ABI KernelOpen(const char* path, int flags, uint16_t mode) {
 	return descriptor;
 }
 
+// Closes descriptor d (EBADF if invalid); deletion is deferred until concurrent users release the File.
 int KYTY_SYSV_ABI KernelClose(int d) {
 	PRINT_NAME();
 
@@ -567,6 +666,7 @@ int KYTY_SYSV_ABI KernelClose(int d) {
 	}
 
 	auto* file = g_files->GetFile(d);
+	FileGuard file_guard(file);
 
 	if (file == nullptr) {
 		return KERNEL_ERROR_EBADF;
@@ -574,11 +674,17 @@ int KYTY_SYSV_ABI KernelClose(int d) {
 
 	EXIT_IF(!file->opened);
 
-	if (!file->directory && file->special == SpecialFile::None) {
-		file->f.Close();
-	}
+	{
+		// Read/write/seek hold file->mutex while using file->f, so closing the
+		// host handle under the same mutex waits for any in-flight operation.
+		Common::LockGuard lock(file->mutex);
 
-	file->opened = false;
+		if (!file->directory && file->special == SpecialFile::None) {
+			file->f.Close();
+		}
+
+		file->opened = false;
+	}
 
 	LOGF("\tClose: %s\n", Common::PathToString(file->real_name).c_str());
 
@@ -587,6 +693,7 @@ int KYTY_SYSV_ABI KernelClose(int d) {
 	return OK;
 }
 
+// fcntl emulation (F_GETFD/F_SETFD only); returns EBADF for invalid or unopened descriptors. File is pinned for the call.
 int KYTY_SYSV_ABI KernelFcntl(int d, int command, int arg) {
 	PRINT_NAME();
 
@@ -595,6 +702,7 @@ int KYTY_SYSV_ABI KernelFcntl(int d, int command, int arg) {
 	}
 
 	auto* file = g_files->GetFile(d);
+	FileGuard file_guard(file);
 	if (file == nullptr || !file->opened) {
 		return KERNEL_ERROR_EBADF;
 	}
@@ -608,6 +716,7 @@ int KYTY_SYSV_ABI KernelFcntl(int d, int command, int arg) {
 	}
 }
 
+// Reads up to nbytes from the current file position; returns bytes read or a kernel error. File is pinned for the call.
 int64_t KYTY_SYSV_ABI KernelRead(int d, void* buf, size_t nbytes) {
 	PRINT_NAME();
 
@@ -625,6 +734,7 @@ int64_t KYTY_SYSV_ABI KernelRead(int d, void* buf, size_t nbytes) {
 	}
 
 	auto* file = g_files->GetFile(d);
+	FileGuard file_guard(file);
 
 	if (file == nullptr) {
 		return KERNEL_ERROR_EBADF;
@@ -675,6 +785,7 @@ int64_t KYTY_SYSV_ABI KernelRead(int d, void* buf, size_t nbytes) {
 	return bytes_read;
 }
 
+// Writes nbytes at the current file position; EBADF if the descriptor is not open for writing. File is pinned for the call.
 int64_t KYTY_SYSV_ABI KernelWrite(int d, const void* buf, size_t nbytes) {
 	PRINT_NAME();
 
@@ -704,6 +815,7 @@ int64_t KYTY_SYSV_ABI KernelWrite(int d, const void* buf, size_t nbytes) {
 	}
 
 	auto* file = g_files->GetFile(d);
+	FileGuard file_guard(file);
 
 	if (file == nullptr || !file->opened || !file->writable) {
 		return KERNEL_ERROR_EBADF;
@@ -740,6 +852,7 @@ int64_t KYTY_SYSV_ABI KernelWrite(int d, const void* buf, size_t nbytes) {
 	return bytes_written;
 }
 
+// Reads from an explicit offset without moving the file position. File is pinned for the call.
 int64_t KYTY_SYSV_ABI KernelPread(int d, void* buf, size_t nbytes, int64_t offset) {
 	PRINT_NAME();
 
@@ -756,6 +869,7 @@ int64_t KYTY_SYSV_ABI KernelPread(int d, void* buf, size_t nbytes, int64_t offse
 	}
 
 	auto* file = g_files->GetFile(d);
+	FileGuard file_guard(file);
 
 	if (file == nullptr) {
 		return KERNEL_ERROR_EBADF;
@@ -829,6 +943,7 @@ static int ValidateIovecs(const KernelIovec* iov, int iovcnt, int64_t offset,
 	return OK;
 }
 
+// Scatter read at an explicit offset after validating the iovec array. File is pinned for the call.
 int64_t KYTY_SYSV_ABI KernelPreadv(int d, const KernelIovec* iov, int iovcnt, int64_t offset) {
 	PRINT_NAME();
 
@@ -846,6 +961,7 @@ int64_t KYTY_SYSV_ABI KernelPreadv(int d, const KernelIovec* iov, int iovcnt, in
 		return KERNEL_ERROR_ESPIPE;
 	}
 	auto* file = g_files->GetFile(d);
+	FileGuard file_guard(file);
 	if (file == nullptr || !file->opened || !file->readable) {
 		return KERNEL_ERROR_EBADF;
 	}
@@ -903,6 +1019,7 @@ int64_t KYTY_SYSV_ABI KernelPreadv(int d, const KernelIovec* iov, int iovcnt, in
 	return bytes_read;
 }
 
+// Writes at an explicit offset without moving the file position. File is pinned for the call.
 int64_t KYTY_SYSV_ABI KernelPwrite(int d, const void* buf, size_t nbytes, int64_t offset) {
 	PRINT_NAME();
 
@@ -919,6 +1036,7 @@ int64_t KYTY_SYSV_ABI KernelPwrite(int d, const void* buf, size_t nbytes, int64_
 	}
 
 	auto* file = g_files->GetFile(d);
+	FileGuard file_guard(file);
 
 	if (file == nullptr || !file->opened || !file->writable) {
 		return KERNEL_ERROR_EBADF;
@@ -956,6 +1074,7 @@ int64_t KYTY_SYSV_ABI KernelPwrite(int d, const void* buf, size_t nbytes, int64_
 	return bytes_written;
 }
 
+// Gather write at an explicit offset after validating the iovec array. File is pinned for the call.
 int64_t KYTY_SYSV_ABI KernelPwritev(int d, const KernelIovec* iov, int iovcnt, int64_t offset) {
 	PRINT_NAME();
 
@@ -973,6 +1092,7 @@ int64_t KYTY_SYSV_ABI KernelPwritev(int d, const KernelIovec* iov, int iovcnt, i
 		return KERNEL_ERROR_ESPIPE;
 	}
 	auto* file = g_files->GetFile(d);
+	FileGuard file_guard(file);
 	if (file == nullptr || !file->opened || !file->writable) {
 		return KERNEL_ERROR_EBADF;
 	}
@@ -1022,6 +1142,7 @@ int64_t KYTY_SYSV_ABI KernelPwritev(int d, const KernelIovec* iov, int iovcnt, i
 	return bytes_written;
 }
 
+// Repositions the file offset per whence; returns the new offset or a kernel error. File is pinned for the call.
 int64_t KYTY_SYSV_ABI KernelLseek(int d, int64_t offset, int whence) {
 	PRINT_NAME();
 
@@ -1030,6 +1151,7 @@ int64_t KYTY_SYSV_ABI KernelLseek(int d, int64_t offset, int whence) {
 	}
 
 	auto* file = g_files->GetFile(d);
+	FileGuard file_guard(file);
 
 	if (file == nullptr) {
 		return KERNEL_ERROR_EBADF;
@@ -1133,6 +1255,7 @@ int KYTY_SYSV_ABI KernelStat(const char* path, FileStat* sb) {
 	return OK;
 }
 
+// Fills sb with stat information for an open descriptor; EBADF if invalid. File is pinned for the call.
 int KYTY_SYSV_ABI KernelFstat(int d, FileStat* sb) {
 	PRINT_NAME();
 
@@ -1145,6 +1268,7 @@ int KYTY_SYSV_ABI KernelFstat(int d, FileStat* sb) {
 	}
 
 	auto* file = g_files->GetFile(d);
+	FileGuard file_guard(file);
 
 	if (file == nullptr) {
 		return KERNEL_ERROR_EBADF;
@@ -1197,6 +1321,7 @@ int KYTY_SYSV_ABI KernelFstat(int d, FileStat* sb) {
 	return OK;
 }
 
+// Resizes an open file to length; EBADF if the descriptor is invalid or not open. File is pinned for the call.
 int KYTY_SYSV_ABI KernelFtruncate(int d, int64_t length) {
 	PRINT_NAME();
 
@@ -1213,6 +1338,7 @@ int KYTY_SYSV_ABI KernelFtruncate(int d, int64_t length) {
 	}
 
 	auto* file = g_files->GetFile(d);
+	FileGuard file_guard(file);
 
 	if (file == nullptr || !file->opened) {
 		return KERNEL_ERROR_EBADF;
@@ -1238,6 +1364,7 @@ int KYTY_SYSV_ABI KernelFtruncate(int d, int64_t length) {
 	return OK;
 }
 
+// Deletes a guest path; if the file is currently open it is unlinked through the open handle (pinned during the call).
 int KYTY_SYSV_ABI KernelUnlink(const char* path) {
 	PRINT_NAME();
 
@@ -1262,6 +1389,7 @@ int KYTY_SYSV_ABI KernelUnlink(const char* path) {
 	}
 
 	auto* open_file = g_files->GetFile(real_file_name);
+	FileGuard open_file_guard(open_file);
 	bool  ok        = (open_file != nullptr && open_file->opened && !open_file->directory
 	                       ? open_file->f.Unlink()
 	                       : Common::File::DeleteFile(real_file_name));
@@ -1309,6 +1437,7 @@ int KYTY_SYSV_ABI KernelRename(const char* from, const char* to) {
 	return OK;
 }
 
+// Reads directory entries from an open directory descriptor into buf. File is pinned for the call.
 int KYTY_SYSV_ABI KernelGetdirentries(int fd, char* buf, int nbytes, int64_t* basep) {
 	PRINT_NAME();
 
@@ -1321,6 +1450,7 @@ int KYTY_SYSV_ABI KernelGetdirentries(int fd, char* buf, int nbytes, int64_t* ba
 	}
 
 	auto* file = g_files->GetFile(fd);
+	FileGuard file_guard(file);
 
 	if (file == nullptr) {
 		return KERNEL_ERROR_EBADF;
