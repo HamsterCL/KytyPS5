@@ -2379,6 +2379,9 @@ KYTY_CP_OP_PARSER(CpOpReleaseMem) {
 KYTY_CP_OP_PARSER(CpOpSetContextReg) {
 	KYTY_PROFILER_FUNCTION();
 
+	// Header + register offset + at least one value dword.
+	EXIT_NOT_IMPLEMENTED(KYTY_PM4_LEN(cmd_id) < 3u);
+
 	auto cmd_offset = NormalizeRegisterOffset(buffer[0]);
 
 	if (HwCtxTrySetFakeRegister(cmd_offset, buffer[1])) {
