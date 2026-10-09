@@ -1748,6 +1748,7 @@ KYTY_CP_OP_PARSER(CpOpDumpConstRam) {
 	EXIT_NOT_IMPLEMENTED(dw_num >= 0x3000);
 	EXIT_NOT_IMPLEMENTED(offset > 0xbffc);
 	EXIT_NOT_IMPLEMENTED((offset & 0x3u) != 0);
+	EXIT_NOT_IMPLEMENTED(offset / 4 + dw_num > 0x3000);
 
 	cp.DumpConstRam(dst, offset, dw_num);
 
@@ -2615,6 +2616,7 @@ KYTY_CP_OP_PARSER(CpOpWriteConstRam) {
 	EXIT_NOT_IMPLEMENTED(dw_num >= 0x3000);
 	EXIT_NOT_IMPLEMENTED(offset > 0xbffc);
 	EXIT_NOT_IMPLEMENTED((offset & 0x3u) != 0);
+	EXIT_NOT_IMPLEMENTED(offset / 4 + dw_num > 0x3000);
 
 	cp.WriteConstRam(offset, buffer + 1, dw_num);
 
@@ -2629,6 +2631,8 @@ KYTY_CP_OP_PARSER(CpOpWriteData) {
 	EXIT_NOT_IMPLEMENTED(op != Pm4::IT_WRITE_DATA);
 
 	auto dw_num = (cmd_id >> 16u) & 0x3fffu;
+
+	EXIT_NOT_IMPLEMENTED(dw_num < 2);
 
 	auto  write_control = buffer[0];
 	auto* dst = reinterpret_cast<uint32_t*>(buffer[1] | (static_cast<uint64_t>(buffer[2]) << 32u));

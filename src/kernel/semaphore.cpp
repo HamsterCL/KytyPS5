@@ -72,6 +72,75 @@ private:
 	int                         m_max_count;
 };
 
+namespace {
+
+// Tracks live KernelSema handles so KernelDeleteSema() can never free an
+// object that another thread is still inside Wait()/Signal()/Cancel()/Poll()
+// for: deletion is deferred until the last pinned caller releases it.
+struct SemaRegistryEntry {
+	int  ref_count      = 0;
+	bool pending_delete = false;
+};
+
+Common::Mutex                                              g_sema_registry_mutex;
+std::unordered_map<KernelSemaPrivate*, SemaRegistryEntry> g_sema_registry;
+
+void RegisterSema(KernelSemaPrivate* sem) {
+	Common::LockGuard lock(g_sema_registry_mutex);
+	g_sema_registry.emplace(sem, SemaRegistryEntry {});
+}
+
+// Validates and pins a handle for the duration of one Kernel*Sema* call.
+// Returns nullptr if the handle is unknown or already being deleted.
+KernelSemaPrivate* PinSema(KernelSemaPrivate* sem) {
+	Common::LockGuard lock(g_sema_registry_mutex);
+	auto              it = g_sema_registry.find(sem);
+	if (it == g_sema_registry.end() || it->second.pending_delete) {
+		return nullptr;
+	}
+	it->second.ref_count++;
+	return sem;
+}
+
+void UnpinSema(KernelSemaPrivate* sem) {
+	KernelSemaPrivate* to_delete = nullptr;
+	{
+		Common::LockGuard lock(g_sema_registry_mutex);
+		auto              it = g_sema_registry.find(sem);
+		EXIT_IF(it == g_sema_registry.end());
+		if (--it->second.ref_count == 0 && it->second.pending_delete) {
+			g_sema_registry.erase(it);
+			to_delete = sem;
+		}
+	}
+	delete to_delete;
+}
+
+// Called from KernelDeleteSema(). Returns false for an unknown/already
+// deleted handle; otherwise deletes immediately, or defers to the matching
+// UnpinSema() once every in-flight call on this handle has returned.
+bool RequestDeleteSema(KernelSemaPrivate* sem) {
+	bool delete_now = false;
+	{
+		Common::LockGuard lock(g_sema_registry_mutex);
+		auto              it = g_sema_registry.find(sem);
+		if (it == g_sema_registry.end() || it->second.pending_delete) {
+			return false;
+		}
+		it->second.pending_delete = true;
+		if (it->second.ref_count == 0) {
+			g_sema_registry.erase(it);
+			delete_now = true;
+		}
+	}
+	if (delete_now) {
+		delete sem;
+	}
+	return true;
+}
+
+} // namespace
+
 KernelSemaPrivate::~KernelSemaPrivate() {
 	Common::LockGuard lock(m_mutex);
 
@@ -270,6 +339,7 @@ int KYTY_SYSV_ABI KernelCreateSema(KernelSema* sem, const char* name, uint32_t a
 	}
 
 	*sem = new KernelSemaPrivate(std::string(name), fifo, init, max);
+	RegisterSema(*sem);
 
 	return OK;
 }
@@ -277,21 +347,21 @@ int KYTY_SYSV_ABI KernelCreateSema(KernelSema* sem, const char* name, uint32_t a
 int KYTY_SYSV_ABI KernelDeleteSema(KernelSema sem) {
 	PRINT_NAME();
 
-	if (sem == nullptr) {
+	if (sem == nullptr || !RequestDeleteSema(sem)) {
 		return KERNEL_ERROR_ESRCH;
 	}
-
-	delete sem;
 
 	return OK;
 }
 
 int KYTY_SYSV_ABI KernelWaitSema(KernelSema sem, int need, KernelUseconds* time) {
+	sem = PinSema(sem);
 	if (sem == nullptr) {
 		return KERNEL_ERROR_ESRCH;
 	}
 
 	auto result = sem->Wait(need, time);
+	UnpinSema(sem);
 
 	int ret = OK;
 
@@ -309,11 +379,13 @@ int KYTY_SYSV_ABI KernelWaitSema(KernelSema sem, int need, KernelUseconds* time)
 int KYTY_SYSV_ABI KernelPollSema(KernelSema sem, int need) {
 	PRINT_NAME();
 
+	sem = PinSema(sem);
 	if (sem == nullptr) {
 		return KERNEL_ERROR_ESRCH;
 	}
 
 	auto result = sem->Poll(need);
+	UnpinSema(sem);
 
 	int ret = OK;
 
@@ -329,11 +401,13 @@ int KYTY_SYSV_ABI KernelPollSema(KernelSema sem, int need) {
 }
 
 int KYTY_SYSV_ABI KernelSignalSema(KernelSema sem, int count) {
+	sem = PinSema(sem);
 	if (sem == nullptr) {
 		return KERNEL_ERROR_ESRCH;
 	}
 
 	auto result = sem->Signal(count);
+	UnpinSema(sem);
 
 	int ret = OK;
 
@@ -351,11 +425,13 @@ int KYTY_SYSV_ABI KernelSignalSema(KernelSema sem, int count) {
 int KYTY_SYSV_ABI KernelCancelSema(KernelSema sem, int count, int* threads) {
 	PRINT_NAME();
 
+	sem = PinSema(sem);
 	if (sem == nullptr) {
 		return KERNEL_ERROR_ESRCH;
 	}
 
 	auto result = sem->Cancel(count, threads);
+	UnpinSema(sem);
 
 	int ret = OK;
 
