@@ -37,6 +37,7 @@ namespace Libs::Graphics {
 	std::fputc('\n', stderr);
 	std::fflush(stderr);
 	EXIT("unsupported render state; details were printed above\n");
+	__builtin_unreachable(); // EXIT never returns
 }
 
 static vk::StencilOp ConvertStencilOp(uint8_t value, uint8_t write_mask, uint8_t op_value) {
