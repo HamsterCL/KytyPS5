@@ -674,11 +674,17 @@ int KYTY_SYSV_ABI KernelClose(int d) {
 
 	EXIT_IF(!file->opened);
 
-	if (!file->directory && file->special == SpecialFile::None) {
-		file->f.Close();
-	}
+	{
+		// Read/write/seek hold file->mutex while using file->f, so closing the
+		// host handle under the same mutex waits for any in-flight operation.
+		Common::LockGuard lock(file->mutex);
 
-	file->opened = false;
+		if (!file->directory && file->special == SpecialFile::None) {
+			file->f.Close();
+		}
+
+		file->opened = false;
+	}
 
 	LOGF("\tClose: %s\n", Common::PathToString(file->real_name).c_str());
 
