@@ -756,11 +756,11 @@ void DecodeVop1Sdwa(uint32_t pc, std::span<const uint32_t> code, uint32_t word_i
 
 	const bool scalar_dst = UsesScalarDestination(inst.opcode);
 	if (scalar_dst) {
-		DecodeScalarDestination(vdst, pc, inst.dst);
+		DecodeScalarDestination(vdst, pc, inst, inst.dst);
 	} else {
 		DecodeVectorGpr(vdst, inst.dst);
 	}
-	DecodeScalarSource(src0 + (s0 == 0u ? 256u : 0u), pc, inst.src0);
+	DecodeScalarSource(src0 + (s0 == 0u ? 256u : 0u), pc, inst, inst.src0);
 	inst.dst.sdwa_sel          = dst_sel;
 	inst.dst.sdwa_dst_unused   = dst_u;
 	inst.dst.explicit_sdwa_dst = true;
@@ -802,11 +802,11 @@ void DecodeVop1Dpp(uint32_t pc, std::span<const uint32_t> code, uint32_t word_in
 
 	const bool scalar_dst = UsesScalarDestination(inst.opcode);
 	if (scalar_dst) {
-		DecodeScalarDestination(vdst, pc, inst.dst);
+		DecodeScalarDestination(vdst, pc, inst, inst.dst);
 	} else {
 		DecodeVectorGpr(vdst, inst.dst);
 	}
-	DecodeScalarSource(src0 + 256u, pc, inst.src0);
+	DecodeScalarSource(src0 + 256u, pc, inst, inst.src0);
 	ApplyDppModifier(inst.src0, modifier, code[word_index] & 0x1ffu);
 	inst.src_count = 1;
 
@@ -1164,8 +1164,8 @@ void DecodeVop2Sdwa(uint32_t pc, std::span<const uint32_t> code, uint32_t word_i
 	}
 
 	DecodeVectorGpr(vdst, inst.dst);
-	DecodeScalarSource(fields.src0 + (fields.s0 == 0u ? 256u : 0u), pc, inst.src0);
-	DecodeScalarSource(vsrc1 + (fields.s1 == 0u ? 256u : 0u), pc, inst.src1);
+	DecodeScalarSource(fields.src0 + (fields.s0 == 0u ? 256u : 0u), pc, inst, inst.src0);
+	DecodeScalarSource(vsrc1 + (fields.s1 == 0u ? 256u : 0u), pc, inst, inst.src1);
 	inst.dst.sdwa_sel          = fields.dst_sel;
 	inst.dst.sdwa_dst_unused   = fields.dst_u;
 	inst.dst.explicit_sdwa_dst = true;
@@ -1190,7 +1190,7 @@ void DecodeVop2Dpp(uint32_t pc, std::span<const uint32_t> code, uint32_t word_in
 
 	DecodeVectorGpr(vdst, inst.dst);
 	DecodeVectorGpr(vsrc1, inst.src1);
-	DecodeScalarSource(src0 + 256u, pc, inst.src0);
+	DecodeScalarSource(src0 + 256u, pc, inst, inst.src0);
 	ApplyDppModifier(inst.src0, modifier, code[word_index] & 0x1ffu);
 	if (!inst.src0.dpp8) {
 		inst.src1.negate   = ((modifier >> 22u) & 0x1u) != 0u;
@@ -1267,14 +1267,14 @@ void DecodeVopcSdwa(uint32_t pc, std::span<const uint32_t> code, uint32_t word_i
 		return;
 	}
 
-	DecodeScalarSource(fields.src0 + (fields.s0 == 0u ? 256u : 0u), pc, inst.src0);
-	DecodeScalarSource(vsrc1 + (fields.s1 == 0u ? 256u : 0u), pc, inst.src1);
+	DecodeScalarSource(fields.src0 + (fields.s0 == 0u ? 256u : 0u), pc, inst, inst.src0);
+	DecodeScalarSource(vsrc1 + (fields.s1 == 0u ? 256u : 0u), pc, inst, inst.src1);
 	if (IsVopcCompareExec(inst.opcode)) {
 		inst.dst.kind = OperandKind::ExecLo;
 	} else if (fields.sd == 0u) {
 		inst.dst.kind = OperandKind::VccLo;
 	} else {
-		DecodeScalarDestination(fields.sdst, pc, inst.dst);
+		DecodeScalarDestination(fields.sdst, pc, inst, inst.dst);
 	}
 	inst.src0.sdwa_sel  = fields.src0_sel;
 	inst.src0.sdwa_sext = fields.src0_sext != 0u;
@@ -1303,7 +1303,7 @@ void DecodeVopcDpp(uint32_t pc, std::span<const uint32_t> code, uint32_t word_in
 		return;
 	}
 	DecodeVectorGpr(vsrc1, inst.src1);
-	DecodeScalarSource(src0 + 256u, pc, inst.src0);
+	DecodeScalarSource(src0 + 256u, pc, inst, inst.src0);
 	inst.dst.kind = IsVopcCompareExec(inst.opcode) ? OperandKind::ExecLo : OperandKind::VccLo;
 	ApplyDppModifier(inst.src0, modifier, code[word_index] & 0x1ffu);
 	inst.src1.negate   = ((modifier >> 22u) & 0x1u) != 0u;
@@ -1694,7 +1694,7 @@ void DecodeVop2(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index
 
 	DecodeVectorGpr(vdst, inst.dst);
 	DecodeVectorGpr(vsrc1, inst.src1);
-	DecodeScalarSource(src0, pc, inst.src0);
+	DecodeScalarSource(src0, pc, inst, inst.src0);
 	FinalizeVop2Instruction(code, word_index, inst);
 }
 
@@ -1728,11 +1728,11 @@ void DecodeVop1(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index
 	}
 	const bool scalar_dst = UsesScalarDestination(inst.opcode);
 	if (scalar_dst) {
-		DecodeScalarDestination(vdst, pc, inst.dst);
+		DecodeScalarDestination(vdst, pc, inst, inst.dst);
 	} else {
 		DecodeVectorGpr(vdst, inst.dst);
 	}
-	DecodeScalarSource(src0, pc, inst.src0);
+	DecodeScalarSource(src0, pc, inst, inst.src0);
 	inst.src_count = 1;
 	ReadLiteralOperands(code, word_index, inst);
 }
@@ -1761,7 +1761,7 @@ void DecodeVopc(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index
 		return;
 	}
 	DecodeVectorGpr(vsrc1, inst.src1);
-	DecodeScalarSource(src0, pc, inst.src0);
+	DecodeScalarSource(src0, pc, inst, inst.src0);
 	inst.src_count = 2;
 	ReadLiteralOperands(code, word_index, inst);
 }
@@ -1833,11 +1833,11 @@ void DecodeVop3(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index
 		inst.dst.kind = OperandKind::ExecLo;
 	} else if (scalar_dst) {
 		// VOP3A uses VDST for VOPC and the scalar-destination lane-read opcodes.
-		DecodeScalarDestination(vdst, pc, inst.dst);
+		DecodeScalarDestination(vdst, pc, inst, inst.dst);
 	} else {
 		DecodeVectorGpr(vdst, inst.dst);
 	}
-	DecodeScalarSource(src0, pc, inst.src0);
+	DecodeScalarSource(src0, pc, inst, inst.src0);
 	inst.dst.clamp = native_clamp_modifier && clamp != 0u;
 	inst.dst.omod  = native_result_modifiers ? omod : 0u;
 	if (permlane) {
@@ -1845,7 +1845,7 @@ void DecodeVop3(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index
 		inst.dst.op_sel_hi = (op_sel & 0x2u) != 0u;
 	}
 	if (vop3_vopc) {
-		DecodeScalarSource(src1, pc, inst.src1);
+		DecodeScalarSource(src1, pc, inst, inst.src1);
 		inst.src_count = 2;
 		if (native_source_modifiers) {
 			ApplyNativeVop3SourceModifiers(inst, abs, neg);
@@ -1862,32 +1862,32 @@ void DecodeVop3(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index
 		return;
 	}
 	if (carry_in_out) {
-		DecodeScalarDestination(sdst, pc, inst.dst2);
-		DecodeScalarSource(src1, pc, inst.src1);
-		DecodeScalarSource(src2, pc, inst.src2);
+		DecodeScalarDestination(sdst, pc, inst, inst.dst2);
+		DecodeScalarSource(src1, pc, inst, inst.src1);
+		DecodeScalarSource(src2, pc, inst, inst.src2);
 		inst.src_count = 3;
 		ReadLiteralOperands(code, word_index, inst);
 		return;
 	}
 	if (vop3b_carry_out) {
-		DecodeScalarDestination(sdst, pc, inst.dst2);
-		DecodeScalarSource(src1, pc, inst.src1);
+		DecodeScalarDestination(sdst, pc, inst, inst.dst2);
+		DecodeScalarSource(src1, pc, inst, inst.src1);
 		inst.src_count = 2;
 		ReadLiteralOperands(code, word_index, inst);
 		return;
 	}
 	if (vop3b_mad_u64) {
-		DecodeScalarDestination(sdst, pc, inst.dst2);
-		DecodeScalarSource(src1, pc, inst.src1);
-		DecodeScalarSource(src2, pc, inst.src2);
+		DecodeScalarDestination(sdst, pc, inst, inst.dst2);
+		DecodeScalarSource(src1, pc, inst, inst.src1);
+		DecodeScalarSource(src2, pc, inst, inst.src2);
 		inst.src_count = 3;
 		ReadLiteralOperands(code, word_index, inst);
 		return;
 	}
 	if (IsVop3EncodedVop2(opcode)) {
-		DecodeScalarSource(src1, pc, inst.src1);
+		DecodeScalarSource(src1, pc, inst, inst.src1);
 		if (inst.opcode == Opcode::V_CNDMASK_B32) {
-			DecodeScalarSource(src2, pc, inst.src2);
+			DecodeScalarSource(src2, pc, inst, inst.src2);
 			inst.src_count = 3;
 		} else {
 			inst.src_count = 2;
@@ -1898,10 +1898,10 @@ void DecodeVop3(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index
 		ReadLiteralOperands(code, word_index, inst);
 		return;
 	}
-	DecodeScalarSource(src1, pc, inst.src1);
+	DecodeScalarSource(src1, pc, inst, inst.src1);
 	inst.src_count = NativeVop3SourceCount(inst.opcode);
 	if (inst.src_count > 2u) {
-		DecodeScalarSource(src2, pc, inst.src2);
+		DecodeScalarSource(src2, pc, inst, inst.src2);
 	}
 	if (mad_mix) {
 		ApplyNativeVop3TernaryModifiers(inst, op_sel, abs, neg);
@@ -1947,10 +1947,10 @@ void DecodeVop3p(uint32_t pc, std::span<const uint32_t> code, uint32_t word_inde
 	}
 	inst.src_count = Vop3pSourceCount(inst.opcode);
 	DecodeVectorGpr(vdst, inst.dst);
-	DecodeScalarSource(src0, pc, inst.src0);
-	DecodeScalarSource(src1, pc, inst.src1);
+	DecodeScalarSource(src0, pc, inst, inst.src0);
+	DecodeScalarSource(src1, pc, inst, inst.src1);
 	if (inst.src_count > 2u) {
-		DecodeScalarSource(src2, pc, inst.src2);
+		DecodeScalarSource(src2, pc, inst, inst.src2);
 	}
 	if (inst.opcode == Opcode::V_FMA_F32) {
 		inst.dst.clamp = clamp != 0u;

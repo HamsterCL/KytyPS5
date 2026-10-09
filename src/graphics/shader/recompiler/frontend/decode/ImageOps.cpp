@@ -316,6 +316,7 @@ uint32_t ImageAddressDwordCount(uint32_t flags, uint32_t components) {
 	return (last.bit_offset + last.bit_width + 31u) / 32u;
 }
 
+// Decodes a MIMG image instruction; resource/sampler SGPR operands are decoded without aborting on unsupported codes.
 void DecodeMimg(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index,
                 Instruction& inst) {
 	const uint32_t word0      = code[word_index];
@@ -395,8 +396,8 @@ void DecodeMimg(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index
 
 	DecodeVectorGpr(vdata, inst.dst);
 	DecodeVectorGpr(vaddr, inst.src0);
-	DecodeScalarSource(srsrc * 4u, pc, inst.src1);
-	DecodeScalarSource(ssamp * 4u, pc, inst.src2);
+	DecodeScalarSource(srsrc * 4u, pc, inst, inst.src1);
+	DecodeScalarSource(ssamp * 4u, pc, inst, inst.src2);
 	inst.src_count = 3;
 }
 
