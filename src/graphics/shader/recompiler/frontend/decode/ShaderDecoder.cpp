@@ -217,7 +217,7 @@ const char* ImageDimensionToString(ImageDimension dimension) {
 	}
 }
 
-void DecodeScalarSource(uint32_t code, uint32_t pc, Operand& operand) {
+void DecodeScalarSource(uint32_t code, uint32_t pc, Instruction& inst, Operand& operand) {
 	operand = {};
 
 	if (code <= 105u) {
@@ -268,14 +268,15 @@ void DecodeScalarSource(uint32_t code, uint32_t pc, Operand& operand) {
 		case 255u: operand.kind = OperandKind::LiteralConstant; return;
 		default:
 			// Rare/reserved scalar operand codes (e.g. trap-temp registers) are not
-			// decoded; degrade this operand instead of aborting the whole emulator,
-			// matching SetUnsupported()'s per-instruction fallback elsewhere.
-			LOGF("unsupported scalar source operand 0x%08x at pc 0x%08x\n", code, pc);
+			// decoded. Mark the whole instruction unsupported right away: an
+			// Unknown operand left unchecked would otherwise reach a reader that
+			// aborts the emulator instead of degrading gracefully.
+			SetUnsupported(inst, inst.family, inst.opcode_id, "unsupported scalar source operand");
 			operand.kind = OperandKind::Unknown;
 	}
 }
 
-void DecodeScalarDestination(uint32_t code, uint32_t pc, Operand& operand) {
+void DecodeScalarDestination(uint32_t code, uint32_t pc, Instruction& inst, Operand& operand) {
 	operand = {};
 
 	if (code <= 105u) {
@@ -292,7 +293,8 @@ void DecodeScalarDestination(uint32_t code, uint32_t pc, Operand& operand) {
 		case 126u: operand.kind = OperandKind::ExecLo; return;
 		case 127u: operand.kind = OperandKind::ExecHi; return;
 		default:
-			LOGF("unsupported scalar destination operand 0x%08x at pc 0x%08x\n", code, pc);
+			SetUnsupported(inst, inst.family, inst.opcode_id,
+			               "unsupported scalar destination operand");
 			operand.kind = OperandKind::Unknown;
 	}
 }

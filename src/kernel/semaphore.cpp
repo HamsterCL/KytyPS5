@@ -44,6 +44,13 @@ public:
 		return Wait(need_count, &micros);
 	}
 
+	// Marks the semaphore deleted and wakes every current waiter with
+	// Result::Deleted. Idempotent. Called as soon as deletion is requested,
+	// even while another thread is still pinned inside Wait(), so a blocked
+	// waiter is never left hanging on a semaphore whose destructor has not
+	// run yet.
+	void MarkDeleted();
+
 	[[nodiscard]] const std::string& GetName() const { return m_name; }
 
 private:
@@ -120,7 +127,6 @@ void UnpinSema(KernelSemaPrivate* sem) {
 // deleted handle; otherwise deletes immediately, or defers to the matching
 // UnpinSema() once every in-flight call on this handle has returned.
 bool RequestDeleteSema(KernelSemaPrivate* sem) {
-	bool delete_now = false;
 	{
 		Common::LockGuard lock(g_sema_registry_mutex);
 		auto              it = g_sema_registry.find(sem);
@@ -128,26 +134,26 @@ bool RequestDeleteSema(KernelSemaPrivate* sem) {
 			return false;
 		}
 		it->second.pending_delete = true;
-		if (it->second.ref_count == 0) {
-			g_sema_registry.erase(it);
-			delete_now = true;
-		}
+		// Hold a temporary pin so the UnpinSema() below is the single place
+		// that frees sem, whether or not another thread is still pinned
+		// inside Wait()/Signal()/Poll()/Cancel().
+		it->second.ref_count++;
 	}
-	if (delete_now) {
-		delete sem;
-	}
+	// Wake any thread already blocked in Wait() *before* possibly freeing
+	// sem, so a waiter with no timeout can never be left hanging on a
+	// semaphore whose deletion is deferred.
+	sem->MarkDeleted();
+	UnpinSema(sem);
 	return true;
 }
 
 } // namespace
 
-KernelSemaPrivate::~KernelSemaPrivate() {
+void KernelSemaPrivate::MarkDeleted() {
 	Common::LockGuard lock(m_mutex);
 
-	while (m_status != Status::Set) {
-		m_mutex.Unlock();
-		Common::Thread::SleepMicro(10);
-		m_mutex.Lock();
+	if (m_status == Status::Deleted) {
+		return;
 	}
 
 	m_status = Status::Deleted;
@@ -160,6 +166,15 @@ KernelSemaPrivate::~KernelSemaPrivate() {
 	}
 
 	m_cond_var.SignalAll();
+}
+
+KernelSemaPrivate::~KernelSemaPrivate() {
+	// By construction (RequestDeleteSema), MarkDeleted() has already run and
+	// every waiter has woken up and removed itself by the time ref_count
+	// reaches zero and this destructor runs; the wait below is a safety net.
+	MarkDeleted();
+
+	Common::LockGuard lock(m_mutex);
 
 	while (!m_waiting_threads.empty()) {
 		m_mutex.Unlock();
