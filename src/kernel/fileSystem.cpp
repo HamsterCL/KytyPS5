@@ -109,7 +109,7 @@ public:
 	File* GetFile(int d);
 	File* GetFile(const std::filesystem::path& real_name);
 	void  ReleaseFile(File* file);
-	void  CloseAll();
+	bool  CloseAll();
 
 private:
 	std::vector<File*> m_files;
@@ -119,7 +119,11 @@ private:
 static MountPoints*     g_mount_points = nullptr;
 static FileDescriptors* g_files        = nullptr;
 
-FileGuard::~FileGuard() { g_files->ReleaseFile(m_file); }
+FileGuard::~FileGuard() {
+	if (g_files != nullptr) {
+		g_files->ReleaseFile(m_file);
+	}
+}
 
 static bool IsRandomDevice(const std::string& path) {
 	return path == "/dev/random" || path == "/dev/urandom";
@@ -302,18 +306,31 @@ File* FileDescriptors::GetFile(const std::filesystem::path& real_name) {
 	return nullptr;
 }
 
-void FileDescriptors::CloseAll() {
+// Returns true if every file was released; false if some are still pinned by
+// a GetFile() caller on another thread. Those are only marked pending_delete
+// and are freed by the last ReleaseFile(), so this object must outlive them.
+bool FileDescriptors::CloseAll() {
 	Common::LockGuard lock(m_mutex);
 
+	bool all_released = true;
+
 	for (auto& f: m_files) {
-		if (f != nullptr) {
-			if (f->opened) {
-				f->f.Close();
-			}
-			delete f;
-			f = nullptr;
+		if (f == nullptr) {
+			continue;
 		}
+		if (f->ref_count > 0) {
+			f->pending_delete = true;
+			all_released      = false;
+			continue;
+		}
+		if (f->opened) {
+			f->f.Close();
+		}
+		delete f;
+		f = nullptr;
 	}
+
+	return all_released;
 }
 
 void MountPoints::Mount(const std::filesystem::path& folder, const std::string& point) {
@@ -436,17 +453,22 @@ void Initialize() {
 	g_files        = new FileDescriptors;
 }
 
+static bool CloseAllFiles() {
+	return g_files == nullptr || g_files->CloseAll();
+}
+
 void EmergencyShutdown() {
-	if (g_files != nullptr) {
-		g_files->CloseAll();
-	}
+	CloseAllFiles();
 }
 
 void Shutdown() {
-	EmergencyShutdown();
-	delete g_files;
+	// If a guest thread is still inside a file call, keep g_files alive (leak
+	// it at process teardown) so its FileGuard can still release the File.
+	if (CloseAllFiles()) {
+		delete g_files;
+		g_files = nullptr;
+	}
 	delete g_mount_points;
-	g_files        = nullptr;
 	g_mount_points = nullptr;
 }
 

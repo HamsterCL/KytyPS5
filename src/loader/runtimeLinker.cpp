@@ -1912,7 +1912,7 @@ void RuntimeLinker::ParseProgramDynamicInfo(Program* program) {
 	// DT_OS_SYMTAB/DT_OS_SYMTABSZ are guest-controlled; make sure the declared
 	// symbol table actually lies within this program's mapped memory before
 	// anything (GetRelocationInfo, CreateSymbolDatabase) indexes into it.
-	{
+	if (program->dynamic_info->symbol_table != nullptr) {
 		const auto symtab_addr = reinterpret_cast<uint64_t>(program->dynamic_info->symbol_table);
 		EXIT_NOT_IMPLEMENTED(symtab_addr < program->base_vaddr);
 		const auto symtab_offset = symtab_addr - program->base_vaddr;
