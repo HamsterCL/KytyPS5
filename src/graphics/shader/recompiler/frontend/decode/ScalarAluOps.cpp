@@ -228,7 +228,7 @@ void DecodeSopk(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index
 
 	switch (inst.opcode) {
 		case Opcode::S_GETREG_B32:
-		case Opcode::S_MOVK_I32: DecodeScalarDestination(sdst, pc, inst.dst); return;
+		case Opcode::S_MOVK_I32: DecodeScalarDestination(sdst, pc, inst, inst.dst); return;
 		case Opcode::S_SUBVECTOR_LOOP_BEGIN:
 		case Opcode::S_SUBVECTOR_LOOP_END:
 			DecodeScalarDestination(sdst, pc, inst, inst.dst);
