@@ -318,6 +318,10 @@ uint32_t EmitFPIsNan32(EmitterState& state, uint32_t arg0) {
 	return EmitNative<spv::OpFUnordNotEqual, IR::Type::U1>(state, arg0, arg0);
 }
 
+uint32_t EmitFPIsNan64(EmitterState& state, uint32_t arg0) {
+	return EmitNative<spv::OpFUnordNotEqual, IR::Type::U1>(state, arg0, arg0);
+}
+
 uint32_t EmitFPMin32(EmitterState& state, uint32_t arg0, uint32_t arg1) {
 	return EmitMinMaxF32Value(state, arg0, arg1, false);
 }
