@@ -33,6 +33,7 @@ uint32_t MeshOutputType(EmitterState& state, IR::StageOutputKind kind) {
 		case IR::StageOutputKind::Parameter: return TypeF32Vector(state, 4);
 		default: EXIT("unsupported mesh output kind=%u\n", static_cast<uint32_t>(kind));
 	}
+	__builtin_unreachable(); // EXIT never returns
 }
 
 } // namespace

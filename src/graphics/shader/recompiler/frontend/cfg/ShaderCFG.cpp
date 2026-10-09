@@ -1708,6 +1708,7 @@ uint32_t FindScalarDefinition(const Decoder::Program& program, const Graph& grap
 		before = block->inst_end;
 	}
 	EXIT("scalar shader call source has cyclic reaching definitions");
+	__builtin_unreachable(); // EXIT never returns
 }
 
 std::string BranchConditionToString(BranchCondition condition) {

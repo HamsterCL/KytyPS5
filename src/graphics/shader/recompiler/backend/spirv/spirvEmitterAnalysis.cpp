@@ -90,6 +90,7 @@ uint32_t ImageScalarType(EmitterState& state, Prospero::TextureNumericClass nume
 		case Prospero::TextureNumericClass::Unsupported: break;
 	}
 	EXIT("invalid image numeric class");
+	__builtin_unreachable(); // EXIT never returns
 }
 
 uint32_t ImageVectorType(EmitterState& state, Prospero::TextureNumericClass numeric_class,

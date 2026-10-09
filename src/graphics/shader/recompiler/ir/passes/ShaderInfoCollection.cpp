@@ -185,7 +185,8 @@ void AddBuiltinInput(ShaderInfo& info, StageInputKind kind) {
 			AddInput(info, kind, 0, 3, "gl_GlobalInvocationID");
 			break;
 		case StageInputKind::PackedAncillary:
-		case StageInputKind::Parameter: break;
+		case StageInputKind::Parameter:
+		case StageInputKind::NumWorkgroups: break; // added by the SPIR-V emitter when LDS needs it
 	}
 }
 

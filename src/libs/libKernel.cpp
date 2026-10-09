@@ -2157,6 +2157,7 @@ int KYTY_SYSV_ABI UmtxOp(volatile void* address, int operation, uint64_t value,
 			return POSIX_CALL(LibKernel::SyncOnAddress::Wake(address, static_cast<int32_t>(value)));
 		default: EXIT("Unsupported _umtx_op operation: %d\n", operation);
 	}
+	__builtin_unreachable(); // EXIT never returns
 }
 
 LIB_DEFINE(InitLibKernel_1_Posix) {

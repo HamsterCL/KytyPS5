@@ -20,6 +20,7 @@ vk::ShaderStageFlagBits NativeShaderStage(ShaderType stage) {
 		case ShaderType::Compute: return vk::ShaderStageFlagBits::eCompute;
 		default: EXIT("unknown native shader stage\n");
 	}
+	__builtin_unreachable(); // EXIT never returns
 }
 
 vk::PipelineStageFlags ShaderPipelineStages(vk::ShaderStageFlags stages) {
