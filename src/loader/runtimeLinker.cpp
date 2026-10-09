@@ -1918,6 +1918,7 @@ void RuntimeLinker::ParseProgramDynamicInfo(Program* program) {
 		const auto symtab_addr = reinterpret_cast<uint64_t>(program->dynamic_info->symbol_table);
 		EXIT_NOT_IMPLEMENTED(symtab_addr < program->base_vaddr);
 		const auto symtab_offset = symtab_addr - program->base_vaddr;
+		EXIT_NOT_IMPLEMENTED(program->dynamic_info->symbol_table_total_size % sizeof(Elf64_Sym) != 0);
 		EXIT_NOT_IMPLEMENTED(symtab_offset > program->mapped_size ||
 		                     program->dynamic_info->symbol_table_total_size >
 		                         program->mapped_size - symtab_offset);

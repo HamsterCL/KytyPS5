@@ -473,12 +473,14 @@ void EmergencyShutdown() {
 void Shutdown() {
 	// If a guest thread is still inside a file call, keep g_files alive (leak
 	// it at process teardown) so its FileGuard can still release the File.
+	// KernelOpen() & co. also use g_mount_points between GetFile() and
+	// ReleaseFile(), so keep it alive in the same case.
 	if (CloseAllFiles()) {
 		delete g_files;
 		g_files = nullptr;
+		delete g_mount_points;
+		g_mount_points = nullptr;
 	}
-	delete g_mount_points;
-	g_mount_points = nullptr;
 }
 
 void Mount(const std::filesystem::path& folder, const std::string& point) {
