@@ -1912,16 +1912,25 @@ void RuntimeLinker::ParseProgramDynamicInfo(Program* program) {
 	GetDynValue(elf, &program->dynamic_info->symbol_table_total_size, DT_OS_SYMTABSZ);
 
 	// DT_OS_SYMTAB/DT_OS_SYMTABSZ are guest-controlled; make sure the declared
-	// symbol table actually lies within this program's mapped memory before
+	// symbol table actually lies within its backing buffer (the separate dynamic-data
+	// allocation for DT_OS_SYMTAB, the mapped program otherwise) before
 	// anything (GetRelocationInfo, CreateSymbolDatabase) indexes into it.
 	if (program->dynamic_info->symbol_table != nullptr) {
 		const auto symtab_addr = reinterpret_cast<uint64_t>(program->dynamic_info->symbol_table);
-		EXIT_NOT_IMPLEMENTED(symtab_addr < program->base_vaddr);
-		const auto symtab_offset = symtab_addr - program->base_vaddr;
+		uint64_t   symtab_offset = 0;
+		uint64_t   region_size   = 0;
+		if (const auto* os_symtab = elf->GetDynValue(DT_OS_SYMTAB); os_symtab != nullptr) {
+			symtab_offset = os_symtab->d_un.d_ptr;
+			region_size   = elf->GetDynamicDataSize();
+		} else {
+			EXIT_NOT_IMPLEMENTED(symtab_addr < program->base_vaddr);
+			symtab_offset = symtab_addr - program->base_vaddr;
+			region_size   = program->mapped_size;
+		}
 		EXIT_NOT_IMPLEMENTED(program->dynamic_info->symbol_table_total_size % sizeof(Elf64_Sym) != 0);
-		EXIT_NOT_IMPLEMENTED(symtab_offset > program->mapped_size ||
+		EXIT_NOT_IMPLEMENTED(symtab_offset > region_size ||
 		                     program->dynamic_info->symbol_table_total_size >
-		                         program->mapped_size - symtab_offset);
+		                         region_size - symtab_offset);
 	}
 
 	GetDynValue(elf, &program->dynamic_info->symbol_table_entry_size, DT_OS_SYMENT);
