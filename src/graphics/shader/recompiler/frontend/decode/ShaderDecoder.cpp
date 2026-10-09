@@ -405,6 +405,12 @@ Program DecodeFrontProgram(std::span<const uint32_t> front) {
 		DecodeInstruction(front, front_words, inst);
 		result.has_swap_pc |= inst.opcode == Opcode::S_SWAPPC_B64;
 		front_words += inst.word_count;
+		// An unsupported terminator (e.g. S_SETPC_B64 with a reserved source) would be
+		// skipped by the check below and trip the generic final check instead.
+		if (inst.opcode == Opcode::UNSUPPORTED) {
+			EXIT("unsupported front program instruction at pc 0x%08x: %s", inst.pc,
+			     std::string(inst.unsupported_reason).c_str());
+		}
 		if (inst.opcode == Opcode::S_SETPC_B64) {
 			EXIT_NOT_IMPLEMENTED(inst.src0.kind != OperandKind::Sgpr || inst.src0.reg != 6u);
 			break;
