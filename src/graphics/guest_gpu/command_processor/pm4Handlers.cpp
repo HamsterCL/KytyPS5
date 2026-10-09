@@ -1350,9 +1350,11 @@ KYTY_CP_OP_PARSER(CpOpGetLodStats) {
 	auto*      dst         = reinterpret_cast<void*>((buffer[1] & 0xffffffc0u) |
 	                                                 (static_cast<uint64_t>(buffer[2]) << 32u));
 
+	EXIT_NOT_IMPLEMENTED(buffer_size > 0x3fffu * sizeof(uint32_t));
+
 	if (dst != nullptr && buffer_size != 0) {
 		memset(dst, 0, buffer_size);
-		// Hack?
+		// Mark the stats buffer as populated/ready for the guest to read.
 		if (buffer_size >= sizeof(uint32_t)) {
 			auto* label = static_cast<uint32_t*>(dst);
 			*label      = 1;

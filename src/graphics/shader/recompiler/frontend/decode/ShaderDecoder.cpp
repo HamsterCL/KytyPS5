@@ -1,6 +1,7 @@
 #include "graphics/shader/recompiler/frontend/decode/ShaderDecoder.h"
 
 #include "common/assert.h"
+#include "common/logging/log.h"
 #include "graphics/shader/recompiler/frontend/decode/ExportOps.h"
 #include "graphics/shader/recompiler/frontend/decode/ImageOps.h"
 #include "graphics/shader/recompiler/frontend/decode/MemoryOps.h"
@@ -265,7 +266,12 @@ void DecodeScalarSource(uint32_t code, uint32_t pc, Operand& operand) {
 		case 252u: operand.kind = OperandKind::ExecZ; return;
 		case 253u: operand.kind = OperandKind::Scc; return;
 		case 255u: operand.kind = OperandKind::LiteralConstant; return;
-		default: EXIT("unsupported scalar source operand 0x%08x at pc 0x%08x", code, pc);
+		default:
+			// Rare/reserved scalar operand codes (e.g. trap-temp registers) are not
+			// decoded; degrade this operand instead of aborting the whole emulator,
+			// matching SetUnsupported()'s per-instruction fallback elsewhere.
+			LOGF("unsupported scalar source operand 0x%08x at pc 0x%08x\n", code, pc);
+			operand.kind = OperandKind::Unknown;
 	}
 }
 
@@ -285,7 +291,9 @@ void DecodeScalarDestination(uint32_t code, uint32_t pc, Operand& operand) {
 		case 125u: operand.kind = OperandKind::Null; return;
 		case 126u: operand.kind = OperandKind::ExecLo; return;
 		case 127u: operand.kind = OperandKind::ExecHi; return;
-		default: EXIT("unsupported scalar destination operand 0x%08x at pc 0x%08x", code, pc);
+		default:
+			LOGF("unsupported scalar destination operand 0x%08x at pc 0x%08x\n", code, pc);
+			operand.kind = OperandKind::Unknown;
 	}
 }
 
