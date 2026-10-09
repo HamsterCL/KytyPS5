@@ -2,6 +2,7 @@
 
 namespace Libs::Graphics::ShaderRecompiler::Frontend {
 
+// Translates a vector ALU instruction to IR, including the full set of F64 compares.
 void Translator::EmitVector(const Decoder::Instruction& inst) {
 	using O = Decoder::Opcode;
 	switch (inst.opcode) {

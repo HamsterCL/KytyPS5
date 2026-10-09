@@ -732,6 +732,7 @@ bool ValidateVop1Sdwa(Instruction& inst, uint32_t opcode, uint32_t modifier) {
 	return true;
 }
 
+// Decodes a VOP1 instruction with an SDWA modifier word.
 void DecodeVop1Sdwa(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index,
                     uint32_t opcode, uint32_t vdst, Instruction& inst) {
 	const auto modifier  = code[word_index + 1u];
@@ -787,6 +788,7 @@ void ApplyDppModifier(Operand& operand, uint32_t modifier, uint32_t encoding) {
 	operand.dpp_row_mask       = (modifier >> 28u) & 0xfu;
 }
 
+// Decodes a VOP1 instruction with a DPP modifier word.
 void DecodeVop1Dpp(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index,
                    uint32_t opcode, uint32_t vdst, Instruction& inst) {
 	if (IsVop1Float64Opcode(inst.opcode)) {
@@ -887,6 +889,7 @@ bool IsVop1FloatResultOpcode(Opcode opcode) {
 	}
 }
 
+// True for VOPC float compare opcodes (F32/F64, including the CMPX variants).
 bool IsVopcFloatCompareOpcode(Opcode opcode) {
 	switch (opcode) {
 		case Opcode::V_CMP_F_F32:
@@ -1149,6 +1152,7 @@ void FinalizeVop2Instruction(std::span<const uint32_t> code, uint32_t word_index
 	ReadLiteralOperands(code, word_index, inst);
 }
 
+// Decodes a VOP2 instruction with an SDWA modifier word.
 void DecodeVop2Sdwa(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index,
                     uint32_t opcode, uint32_t vdst, uint32_t vsrc1, Instruction& inst) {
 	const auto modifier = code[word_index + 1u];
@@ -1177,6 +1181,7 @@ void DecodeVop2Sdwa(uint32_t pc, std::span<const uint32_t> code, uint32_t word_i
 	FinalizeVop2Instruction(code, word_index, inst);
 }
 
+// Decodes a VOP2 instruction with a DPP modifier word.
 void DecodeVop2Dpp(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index,
                    uint32_t opcode, uint32_t vdst, uint32_t vsrc1, Instruction& inst) {
 	const auto modifier = code[word_index + 1u];
@@ -1240,6 +1245,7 @@ VopcSdwaFields DecodeVopcSdwaFields(uint32_t modifier) {
 	return fields;
 }
 
+// True if the VOPC opcode can be encoded with SDWA; 64-bit compares (including all F64 ones) cannot.
 bool SupportsVopcSdwa(Opcode opcode) {
 	// SDWA only selects bytes/words out of a 32-bit operand, so none of the
 	// double-precision VOPC compares (contiguous V_CMP_F_F64..V_CMPX_NLT_F64
@@ -1248,6 +1254,7 @@ bool SupportsVopcSdwa(Opcode opcode) {
 	       (opcode < Opcode::V_CMP_F_F64 || opcode > Opcode::V_CMPX_NLT_F64);
 }
 
+// Decodes a VOPC instruction with an SDWA modifier word; unsupported opcodes are marked unsupported.
 void DecodeVopcSdwa(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index,
                     uint32_t opcode, uint32_t vsrc1, Instruction& inst) {
 	const auto modifier = code[word_index + 1u];
@@ -1284,6 +1291,7 @@ void DecodeVopcSdwa(uint32_t pc, std::span<const uint32_t> code, uint32_t word_i
 	ReadLiteralOperands(code, word_index, inst);
 }
 
+// Decodes a VOPC instruction with a DPP modifier word.
 void DecodeVopcDpp(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index,
                    uint32_t opcode, uint32_t vsrc1, Instruction& inst) {
 	const auto modifier = code[word_index + 1u];
@@ -1576,6 +1584,7 @@ void ApplyNativeVop3SourceModifiers(Instruction& inst, uint32_t abs, uint32_t ne
 	}
 }
 
+// True for VOPC CMPX opcodes, which write the compare result to EXEC.
 bool IsVopcCompareExec(Opcode opcode) {
 	switch (opcode) {
 		case Opcode::V_CMPX_LT_F64:
@@ -1659,6 +1668,7 @@ bool IsVopcCompareExec(Opcode opcode) {
 
 } // namespace
 
+// Decodes a VOP2 instruction; unsupported scalar operands mark the instruction unsupported.
 void DecodeVop2(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index,
                 Instruction& inst) {
 	const uint32_t word   = code[word_index];
@@ -1690,6 +1700,7 @@ void DecodeVop2(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index
 	FinalizeVop2Instruction(code, word_index, inst);
 }
 
+// Decodes a VOP1 instruction; unsupported scalar operands mark the instruction unsupported.
 void DecodeVop1(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index,
                 Instruction& inst) {
 	const uint32_t word   = code[word_index];
@@ -1729,6 +1740,7 @@ void DecodeVop1(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index
 	ReadLiteralOperands(code, word_index, inst);
 }
 
+// Decodes a VOPC instruction (including F64 compares); unsupported scalar operands mark the instruction unsupported.
 void DecodeVopc(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index,
                 Instruction& inst) {
 	const uint32_t word   = code[word_index];
@@ -1758,6 +1770,7 @@ void DecodeVopc(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index
 	ReadLiteralOperands(code, word_index, inst);
 }
 
+// Decodes a VOP3 instruction; unsupported scalar operands mark the instruction unsupported.
 void DecodeVop3(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index,
                 Instruction& inst) {
 	const uint32_t word0  = code[word_index];
@@ -1911,6 +1924,7 @@ void DecodeVop3(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index
 	ReadLiteralOperands(code, word_index, inst);
 }
 
+// Decodes a VOP3P packed instruction; unsupported scalar operands mark the instruction unsupported.
 void DecodeVop3p(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index,
                  Instruction& inst) {
 	const uint32_t word0       = code[word_index];

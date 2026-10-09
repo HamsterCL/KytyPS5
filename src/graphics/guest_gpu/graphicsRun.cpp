@@ -670,6 +670,8 @@ void CommandProcessor::SuspendPm4() {
 	g_current_execution->m_suspended = true;
 }
 
+// Walks the PM4 command buffer and dispatches each packet to its handler; a packet whose declared
+// length is zero or exceeds the remaining dwords is rejected before dispatch.
 void CommandProcessor::ProcessPm4(Pm4Execution& execution) {
 	while (!execution.m_buffer_stack.empty()) {
 		if (g_gpu_state != nullptr) {

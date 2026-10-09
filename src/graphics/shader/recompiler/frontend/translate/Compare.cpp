@@ -65,6 +65,7 @@ void Translator::EmitFloatCompare(const Decoder::Instruction& inst, IR::ValueOpc
 	EmitCompareResult(inst, IR::U1(ir.Emit(opcode, {lhs, rhs}, flags)), false, cmpx);
 }
 
+// Emits V_CMP_O/U: ordered (neither operand NaN) or unordered (either NaN), on F32 or F64 operands.
 void Translator::EmitFloatOrderedCompare(const Decoder::Instruction& inst, bool ordered, bool cmpx,
                                          bool is64) {
 	const auto type       = is64 ? IR::Type::F64 : IR::Type::F32;

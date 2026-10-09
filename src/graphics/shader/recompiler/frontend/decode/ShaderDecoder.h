@@ -856,7 +856,9 @@ void DecodeProgram(std::span<const uint32_t> code, Program& program);
 bool IsConditionalBranch(Opcode opcode);
 bool IsDirectBranch(Opcode opcode);
 
+// Decodes a scalar source operand; unsupported codes mark inst unsupported instead of aborting.
 void DecodeScalarSource(uint32_t code, uint32_t pc, Instruction& inst, Operand& operand);
+// Decodes a scalar destination operand; unsupported codes mark inst unsupported instead of aborting.
 void DecodeScalarDestination(uint32_t code, uint32_t pc, Instruction& inst, Operand& operand);
 void DecodeVectorGpr(uint32_t reg, Operand& operand);
 void ReadLiteralOperands(std::span<const uint32_t> code, uint32_t word_index, Instruction& inst);

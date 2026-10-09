@@ -318,6 +318,7 @@ bool SysFileUnlink(sys_file_t& f, const std::filesystem::path& name) {
 	return SysFileDeleteFile(name);
 }
 
+// Seeks a file; for memory-backed files the position is clamped to the buffer size.
 bool SysFileSeek(sys_file_t& f, uint64_t offset) {
 	bool ok = true;
 	if (f.type == SYS_FILE_FILE) {

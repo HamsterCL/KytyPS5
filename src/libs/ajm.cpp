@@ -441,6 +441,7 @@ static AjmDecodeResult AjmDecodeInstance(uint32_t instance, const void* input, s
 	                              &state->gapless);
 }
 
+// Decodes one split-buffer AJM instance; returns AJM_RESULT_INVALID_PARAMETER if summed buffer sizes overflow.
 static AjmDecodeResult AjmDecodeSplitInstance(uint32_t instance, const AjmBuffer* input_buffers,
                                               size_t           input_buffers_num,
                                               const AjmBuffer* output_buffers,

@@ -217,6 +217,8 @@ const char* ImageDimensionToString(ImageDimension dimension) {
 	}
 }
 
+// Decodes a scalar source operand code. Reserved/unsupported codes mark the whole instruction unsupported
+// (operand kind Unknown) rather than aborting the emulator.
 void DecodeScalarSource(uint32_t code, uint32_t pc, Instruction& inst, Operand& operand) {
 	operand = {};
 
@@ -276,6 +278,8 @@ void DecodeScalarSource(uint32_t code, uint32_t pc, Instruction& inst, Operand& 
 	}
 }
 
+// Decodes a scalar destination operand code. Unsupported codes mark the whole instruction unsupported
+// (operand kind Unknown) rather than aborting the emulator.
 void DecodeScalarDestination(uint32_t code, uint32_t pc, Instruction& inst, Operand& operand) {
 	operand = {};
 

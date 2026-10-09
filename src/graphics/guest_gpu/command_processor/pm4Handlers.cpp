@@ -231,6 +231,8 @@ KYTY_HW_CTX_PARSER(HwCtxSetAaConfig) {
 	return 1;
 }
 
+// Handles SET_CONTEXT_REG for AA sample control; the optional centroid-priority block is only
+// consumed when the packet is long enough (dw >= 21) to contain it.
 KYTY_HW_CTX_PARSER(HwCtxSetAaSampleControl) {
 	if (cmd_id == 0xc0016900 && cmd_offset >= Pm4::PA_SC_AA_SAMPLE_LOCS_PIXEL_X0Y0_0 &&
 	    cmd_offset < Pm4::PA_SC_AA_SAMPLE_LOCS_PIXEL_X0Y0_0 + 16) {
@@ -1341,6 +1343,7 @@ KYTY_CP_OP_PARSER(CpOpDispatchIndirect) {
 	return 2;
 }
 
+// Handles GET_LOD_STATS: zeroes the destination stats buffer (size validated against the packet limit) and sets its ready label.
 KYTY_CP_OP_PARSER(CpOpGetLodStats) {
 	KYTY_PROFILER_FUNCTION();
 
@@ -1738,6 +1741,7 @@ KYTY_CP_OP_PARSER(CpOpContextState) {
 	return packet_size_dw - 1u;
 }
 
+// Handles DUMP_CONST_RAM; offset alignment and offset+length are validated against the 0x3000-dword const RAM.
 KYTY_CP_OP_PARSER(CpOpDumpConstRam) {
 	KYTY_PROFILER_FUNCTION();
 
@@ -2609,6 +2613,7 @@ KYTY_CP_OP_PARSER(CpOpWaitOnDeCounterDiff) {
 	return 1;
 }
 
+// Handles WRITE_CONST_RAM; offset alignment and offset+length are validated against the 0x3000-dword const RAM.
 KYTY_CP_OP_PARSER(CpOpWriteConstRam) {
 	KYTY_PROFILER_FUNCTION();
 
@@ -2625,6 +2630,7 @@ KYTY_CP_OP_PARSER(CpOpWriteConstRam) {
 	return 1 + dw_num;
 }
 
+// Handles WRITE_DATA; rejects packets too short to hold the control word and destination address.
 KYTY_CP_OP_PARSER(CpOpWriteData) {
 	KYTY_PROFILER_FUNCTION();
 

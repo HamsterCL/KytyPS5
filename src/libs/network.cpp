@@ -1064,6 +1064,7 @@ static int ConvertSocketOptionLevel(int level) {
 	return (level == 0xffff ? SOL_SOCKET : level);
 }
 
+// Maps a guest socket level/option to the host option; returns -1 for unsupported options.
 static int ConvertSocketOptionName(int level, int option) {
 	if (level == 0xffff) {
 		switch (option) {
@@ -2137,6 +2138,7 @@ int KYTY_SYSV_ABI Getsockname(int s, void* addr, uint32_t* addrlen) {
 	return result;
 }
 
+// Reads a socket option, converting host timeouts to guest units (SO_SNDTIMEO us, SO_RCVTIMEO ms).
 int KYTY_SYSV_ABI Getsockopt(int s, int level, int optname, void* optval, uint32_t* optlen) {
 	PRINT_NAME();
 
@@ -2219,6 +2221,7 @@ int KYTY_SYSV_ABI Getsockopt(int s, int level, int optname, void* optval, uint32
 	return 0;
 }
 
+// Sets a socket option, converting guest timeout units (SO_SNDTIMEO us, SO_RCVTIMEO ms) to host values with size validation.
 int KYTY_SYSV_ABI Setsockopt(int s, int level, int optname, const void* optval, uint32_t optlen) {
 	PRINT_NAME();
 

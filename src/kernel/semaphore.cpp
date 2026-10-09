@@ -92,6 +92,7 @@ struct SemaRegistryEntry {
 Common::Mutex                                              g_sema_registry_mutex;
 std::unordered_map<KernelSemaPrivate*, SemaRegistryEntry> g_sema_registry;
 
+// Adds a newly created semaphore to the live-handle registry.
 void RegisterSema(KernelSemaPrivate* sem) {
 	Common::LockGuard lock(g_sema_registry_mutex);
 	g_sema_registry.emplace(sem, SemaRegistryEntry {});
@@ -109,6 +110,7 @@ KernelSemaPrivate* PinSema(KernelSemaPrivate* sem) {
 	return sem;
 }
 
+// Releases a pin taken by PinSema(); frees the semaphore if deletion was requested and this was the last pin.
 void UnpinSema(KernelSemaPrivate* sem) {
 	KernelSemaPrivate* to_delete = nullptr;
 	{
@@ -149,6 +151,7 @@ bool RequestDeleteSema(KernelSemaPrivate* sem) {
 
 } // namespace
 
+// Marks the semaphore deleted and wakes all waiters with Result::Deleted (idempotent).
 void KernelSemaPrivate::MarkDeleted() {
 	Common::LockGuard lock(m_mutex);
 
@@ -168,6 +171,7 @@ void KernelSemaPrivate::MarkDeleted() {
 	m_cond_var.SignalAll();
 }
 
+// Ensures the semaphore is marked deleted and waits for any remaining waiters to leave before destruction.
 KernelSemaPrivate::~KernelSemaPrivate() {
 	// By construction (RequestDeleteSema), MarkDeleted() has already run and
 	// every waiter has woken up and removed itself by the time ref_count
@@ -335,6 +339,7 @@ KernelSemaPrivate::Result KernelSemaPrivate::Wait(int need_count, uint32_t* ptr_
 	return waiter.result;
 }
 
+// Creates a semaphore and registers its handle so later calls can validate it.
 int KYTY_SYSV_ABI KernelCreateSema(KernelSema* sem, const char* name, uint32_t attr, int init,
                                    int max, void* opt) {
 	PRINT_NAME();
@@ -359,6 +364,7 @@ int KYTY_SYSV_ABI KernelCreateSema(KernelSema* sem, const char* name, uint32_t a
 	return OK;
 }
 
+// Requests deletion of a semaphore; ESRCH for an unknown or already-deleted handle. Freeing is deferred while calls are in flight.
 int KYTY_SYSV_ABI KernelDeleteSema(KernelSema sem) {
 	PRINT_NAME();
 
@@ -369,6 +375,7 @@ int KYTY_SYSV_ABI KernelDeleteSema(KernelSema sem) {
 	return OK;
 }
 
+// Waits for need units; the handle is pinned for the call (ESRCH if unknown or being deleted).
 int KYTY_SYSV_ABI KernelWaitSema(KernelSema sem, int need, KernelUseconds* time) {
 	sem = PinSema(sem);
 	if (sem == nullptr) {
@@ -391,6 +398,7 @@ int KYTY_SYSV_ABI KernelWaitSema(KernelSema sem, int need, KernelUseconds* time)
 	return ret;
 }
 
+// Non-blocking acquire of need units; the handle is pinned for the call (ESRCH if unknown or being deleted).
 int KYTY_SYSV_ABI KernelPollSema(KernelSema sem, int need) {
 	PRINT_NAME();
 
@@ -415,6 +423,7 @@ int KYTY_SYSV_ABI KernelPollSema(KernelSema sem, int need) {
 	return ret;
 }
 
+// Releases count units; the handle is pinned for the call (ESRCH if unknown or being deleted).
 int KYTY_SYSV_ABI KernelSignalSema(KernelSema sem, int count) {
 	sem = PinSema(sem);
 	if (sem == nullptr) {
@@ -437,6 +446,7 @@ int KYTY_SYSV_ABI KernelSignalSema(KernelSema sem, int count) {
 	return ret;
 }
 
+// Wakes waiters with cancellation; the handle is pinned for the call (ESRCH if unknown or being deleted).
 int KYTY_SYSV_ABI KernelCancelSema(KernelSema sem, int count, int* threads) {
 	PRINT_NAME();
 

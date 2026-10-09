@@ -844,6 +844,7 @@ bool IsBufferDwordLoad(Decoder::Opcode opcode) {
 	}
 }
 
+// Grows vector_limit to cover every VGPR (including 64-bit register pairs) the instruction reads or writes.
 void IncludeInstructionVectorRegisters(const Decoder::Instruction& inst, uint32_t& vector_limit) {
 	const auto include_vector = [&](const Decoder::Operand& operand, uint32_t count = 1u) {
 		if (operand.kind == Decoder::OperandKind::Vgpr) {

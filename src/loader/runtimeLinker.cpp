@@ -806,6 +806,7 @@ static void GetDynLibs(Elf64* elf, T* out, const char* names, Elf64_Sxword tag) 
 	}
 }
 
+// Decodes a relocation entry; symbol-based relocations are bounds-checked against the symbol table size.
 static RelocationInfo GetRelocationInfo(Elf64_Rela* r, Program* program) {
 	KYTY_PROFILER_FUNCTION();
 
@@ -1880,6 +1881,7 @@ void RuntimeLinker::DeleteProgram(Program* p) {
 	}
 }
 
+// Parses the dynamic section; verifies the guest-declared symbol table lies inside the mapped program.
 void RuntimeLinker::ParseProgramDynamicInfo(Program* program) {
 	KYTY_PROFILER_FUNCTION();
 

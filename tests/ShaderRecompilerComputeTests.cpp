@@ -25623,6 +25623,7 @@ TestCase VectorCompareInteger64Edges() {
   return test;
 }
 
+// Builds a test of VOPC/CMPX compares (16-bit, integer and ordered FP64 cases) and the resulting EXEC masks for the given wave size.
 TestCase VectorCompareExecWaveMasks(u32 wave_size) {
   using O = ShaderOpcode;
   // Rows exercise signed 16-bit truncation, full-width integer ordering, and
@@ -25774,6 +25775,7 @@ TestCase VectorCompareExecWaveMasks(u32 wave_size) {
   return test;
 }
 
+// Builds a test of F64 VOPC compares over edge-case pairs (signed zero, NaN, infinities, subnormals).
 TestCase VectorCompareF64Edges() {
   using O = ShaderOpcode;
   constexpr std::array<std::array<uint64_t, 2>, 15> pairs{{

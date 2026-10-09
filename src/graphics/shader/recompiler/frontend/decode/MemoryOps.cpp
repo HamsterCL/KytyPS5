@@ -238,6 +238,7 @@ bool IsFlatStoreOpcode(Opcode opcode) {
 
 } // namespace
 
+// Decodes an SMEM scalar memory instruction; unsupported scalar operands mark the instruction unsupported.
 void DecodeSmem(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index,
                 Instruction& inst) {
 	const uint32_t word0   = code[word_index];
@@ -272,6 +273,7 @@ void DecodeSmem(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index
 	inst.src_count = 2;
 }
 
+// Decodes a MUBUF buffer instruction; unsupported scalar operands mark the instruction unsupported.
 void DecodeMubuf(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index,
                  Instruction& inst) {
 	const uint32_t word0   = code[word_index];
@@ -311,6 +313,7 @@ void DecodeMubuf(uint32_t pc, std::span<const uint32_t> code, uint32_t word_inde
 	inst.src_count = 3;
 }
 
+// Decodes an MTBUF typed buffer instruction; unsupported scalar operands mark the instruction unsupported.
 void DecodeMtbuf(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index,
                  Instruction& inst) {
 	const uint32_t word0   = code[word_index];
@@ -349,6 +352,7 @@ void DecodeMtbuf(uint32_t pc, std::span<const uint32_t> code, uint32_t word_inde
 	inst.src_count = 3;
 }
 
+// Decodes a FLAT/global/scratch instruction; unsupported scalar address operands mark the instruction unsupported.
 void DecodeFlat(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index,
                 Instruction& inst) {
 	const uint32_t word0  = code[word_index];

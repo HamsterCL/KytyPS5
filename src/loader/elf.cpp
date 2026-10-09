@@ -239,6 +239,7 @@ Elf64::~Elf64() {
 	Clear();
 }
 
+// Loads a segment into memory; bounds-checks the program-header index of SELF segments before use.
 void Elf64::LoadSegment(uint64_t vaddr, uint64_t file_offset, uint64_t size) {
 	EXIT_IF(m_f == nullptr);
 

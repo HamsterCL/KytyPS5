@@ -123,6 +123,7 @@ constexpr auto SOPK_OPS = Detail::MakeOpcodeTable<0x20>(SOPK_OPCODE_LIST);
 constexpr auto SOPC_OPS = Detail::MakeOpcodeTable<0x80>(SOPC_OPCODE_LIST);
 constexpr auto SOPP_OPS = Detail::MakeOpcodeTable<0x80>(SOPP_OPCODE_LIST);
 
+// Decodes the two scalar sources of a binary scalar ALU instruction.
 void DecodeBinarySources(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index,
                          Instruction& inst, uint32_t ssrc0, uint32_t ssrc1) {
 	DecodeScalarSource(ssrc0, pc, inst, inst.src0);
@@ -133,6 +134,7 @@ void DecodeBinarySources(uint32_t pc, std::span<const uint32_t> code, uint32_t w
 
 } // namespace
 
+// Decodes a SOP1 instruction; unsupported scalar operands mark the instruction unsupported.
 void DecodeSop1(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index,
                 Instruction& inst) {
 	const uint32_t word   = code[word_index];
@@ -179,6 +181,7 @@ void DecodeSop1(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index
 	ReadLiteralOperands(code, word_index, inst);
 }
 
+// Decodes a SOP2 instruction; unsupported scalar operands mark the instruction unsupported.
 void DecodeSop2(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index,
                 Instruction& inst) {
 	const uint32_t word   = code[word_index];
@@ -202,6 +205,7 @@ void DecodeSop2(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index
 	DecodeBinarySources(pc, code, word_index, inst, ssrc0, ssrc1);
 }
 
+// Decodes a SOPK instruction; unsupported scalar operands mark the instruction unsupported.
 void DecodeSopk(uint32_t pc, std::span<const uint32_t> code, uint32_t word_index,
                 Instruction& inst) {
 	const uint32_t word   = code[word_index];

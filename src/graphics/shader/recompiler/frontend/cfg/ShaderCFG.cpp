@@ -324,6 +324,8 @@ bool ScalarCodeWrittenInRange(const Decoder::Program& program, uint32_t begin_in
 	return false;
 }
 
+// Resolves an S_SETPC_B64 jump table by matching the preceding S_GETPC_B64/S_ADD_U32/S_ADDC_U32 sequence;
+// false if the pattern is absent or setpc_index is too small to have those three predecessors.
 bool ResolveSetpcJumpTable(const Decoder::Program& program, uint32_t setpc_index,
                            SetpcTargetInfo& info) {
 	if (setpc_index < 3u || setpc_index >= program.instructions.size()) {
@@ -421,6 +423,8 @@ bool ResolveSetpcJumpTable(const Decoder::Program& program, uint32_t setpc_index
 	return true;
 }
 
+// Dword-table variant matching the preceding S_SUB_U32/S_SUBB_U32 pair; false if the pattern is absent
+// or setpc_index is too small to have those two predecessors.
 bool ResolveSetpcDwordJumpTable(const Decoder::Program& program, uint32_t setpc_index,
                                 SetpcTargetInfo& info) {
 	if (setpc_index < 2u || setpc_index >= program.instructions.size()) {

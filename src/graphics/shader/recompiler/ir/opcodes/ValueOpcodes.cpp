@@ -70,6 +70,7 @@ std::string_view ValueOpcodeName(ValueOpcode opcode) {
 	return MetaTable[static_cast<size_t>(opcode)].name;
 }
 
+// True for IR opcodes (e.g. stores, barriers, Sendmsg) that must not be removed as dead code.
 bool HasSideEffects(ValueOpcode opcode) {
 	const auto buffer_access = BufferAccessOf(opcode);
 	if (buffer_access == BufferAccess::Write || buffer_access == BufferAccess::Atomic) {
