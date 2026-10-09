@@ -60,6 +60,7 @@ enum class Opcode {
 	S_QUADMASK_B64,
 	S_GETPC_B64,
 	S_SETPC_B64,
+	S_SWAPPC_B64,
 	S_SUBVECTOR_LOOP_BEGIN,
 	S_SUBVECTOR_LOOP_END,
 	S_AND_SAVEEXEC_B32,
@@ -704,6 +705,7 @@ enum class Opcode {
 	S_CBRANCH_CDBGSYS,
 	S_CBRANCH_CDBGSYS_OR_USER,
 	S_SENDMSG,
+	S_GETREG_B32,
 	S_SETREG_B32,
 	S_SLEEP,
 	S_TRAP,
@@ -842,6 +844,7 @@ struct Instruction {
 struct Program {
 	std::span<const uint32_t> code;
 	std::vector<Instruction>  instructions;
+	bool                     has_swap_pc = false;
 };
 
 // Code spans are trusted to contain complete instructions, valid branch targets, and 32-bit PCs.
