@@ -672,12 +672,16 @@ int KYTY_SYSV_ABI KernelClose(int d) {
 		return KERNEL_ERROR_EBADF;
 	}
 
-	EXIT_IF(!file->opened);
-
 	{
 		// Read/write/seek hold file->mutex while using file->f, so closing the
 		// host handle under the same mutex waits for any in-flight operation.
 		Common::LockGuard lock(file->mutex);
+
+		// A concurrent close may have pinned the same File first; only the call
+		// that flips opened to false may go on to delete the descriptor.
+		if (!file->opened) {
+			return KERNEL_ERROR_EBADF;
+		}
 
 		if (!file->directory && file->special == SpecialFile::None) {
 			file->f.Close();
