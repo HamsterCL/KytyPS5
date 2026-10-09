@@ -121,9 +121,13 @@ void Translate(const Program& program, uint64_t source_base, uint64_t source_add
 	*target_address = program.base_vaddr - (source_base - source_address);
 }
 
+// True if [address, address+size) lies inside the program mapping; written to avoid integer overflow.
 bool IsInsideProgram(const Program& program, uint64_t address, size_t size) {
-	return size != 0 && address >= program.base_vaddr &&
-	       address + size <= program.base_vaddr + program.mapped_size;
+	if (size == 0 || address < program.base_vaddr) {
+		return false;
+	}
+	auto offset = address - program.base_vaddr;
+	return offset <= program.mapped_size && size <= program.mapped_size - offset;
 }
 
 bool IsZero(const std::vector<uint8_t>& bytes) {

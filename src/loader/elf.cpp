@@ -239,6 +239,7 @@ Elf64::~Elf64() {
 	Clear();
 }
 
+// Loads a segment into memory; bounds-checks the program-header index of SELF segments before use.
 void Elf64::LoadSegment(uint64_t vaddr, uint64_t file_offset, uint64_t size) {
 	EXIT_IF(m_f == nullptr);
 
@@ -250,6 +251,8 @@ void Elf64::LoadSegment(uint64_t vaddr, uint64_t file_offset, uint64_t size) {
 			const auto& seg = m_self_segments[i];
 			if ((seg.type & 0x800u) != 0) {
 				auto phdr_id = ((seg.type >> 20u) & 0xFFFu);
+
+				EXIT_NOT_IMPLEMENTED(m_ehdr == nullptr || phdr_id >= m_ehdr->e_phnum);
 
 				const auto& phdr = m_phdr[phdr_id];
 
