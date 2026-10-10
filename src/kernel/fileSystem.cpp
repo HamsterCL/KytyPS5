@@ -770,6 +770,12 @@ int64_t KYTY_SYSV_ABI KernelRead(int d, void* buf, size_t nbytes) {
 	}
 
 	file->mutex.Lock();
+	// Re-check under the mutex: KernelClose() may have closed the host handle since the check above.
+	if (!file->opened) {
+		file->mutex.Unlock();
+		return KERNEL_ERROR_EBADF;
+	}
+
 
 	bool       is_invalid = file->f.IsInvalid();
 	const auto pos        = file->f.Tell();
@@ -839,6 +845,12 @@ int64_t KYTY_SYSV_ABI KernelWrite(int d, const void* buf, size_t nbytes) {
 	EXIT_NOT_IMPLEMENTED(nbytes > UINT_MAX);
 
 	file->mutex.Lock();
+	// Re-check under the mutex: KernelClose() may have closed the host handle since the check above.
+	if (!file->opened) {
+		file->mutex.Unlock();
+		return KERNEL_ERROR_EBADF;
+	}
+
 
 	bool     is_invalid    = file->f.IsInvalid();
 	uint32_t bytes_written = 0;
@@ -904,6 +916,12 @@ int64_t KYTY_SYSV_ABI KernelPread(int d, void* buf, size_t nbytes, int64_t offse
 	}
 
 	file->mutex.Lock();
+	// Re-check under the mutex: KernelClose() may have closed the host handle since the check above.
+	if (!file->opened) {
+		file->mutex.Unlock();
+		return KERNEL_ERROR_EBADF;
+	}
+
 
 	bool       is_invalid = file->f.IsInvalid();
 	auto       pos        = file->f.Tell();
@@ -980,6 +998,10 @@ int64_t KYTY_SYSV_ABI KernelPreadv(int d, const KernelIovec* iov, int iovcnt, in
 	}
 
 	Common::LockGuard lock(file->mutex);
+	// Re-check under the mutex: KernelClose() may have closed the host handle since the check above.
+	if (!file->opened) {
+		return KERNEL_ERROR_EBADF;
+	}
 	if (file->directory) {
 		return KERNEL_ERROR_EISDIR;
 	}
@@ -1066,6 +1088,12 @@ int64_t KYTY_SYSV_ABI KernelPwrite(int d, const void* buf, size_t nbytes, int64_
 	EXIT_NOT_IMPLEMENTED(nbytes > UINT_MAX);
 
 	file->mutex.Lock();
+	// Re-check under the mutex: KernelClose() may have closed the host handle since the check above.
+	if (!file->opened) {
+		file->mutex.Unlock();
+		return KERNEL_ERROR_EBADF;
+	}
+
 
 	bool     is_invalid    = file->f.IsInvalid();
 	auto     pos           = file->f.Tell();
@@ -1113,6 +1141,10 @@ int64_t KYTY_SYSV_ABI KernelPwritev(int d, const KernelIovec* iov, int iovcnt, i
 		return KERNEL_ERROR_EBADF;
 	}
 	Common::LockGuard lock(file->mutex);
+	// Re-check under the mutex: KernelClose() may have closed the host handle since the check above.
+	if (!file->opened) {
+		return KERNEL_ERROR_EBADF;
+	}
 	if (file->directory) {
 		return KERNEL_ERROR_EISDIR;
 	}
@@ -1183,6 +1215,10 @@ int64_t KYTY_SYSV_ABI KernelLseek(int d, int64_t offset, int whence) {
 	}
 
 	Common::LockGuard lock(file->mutex);
+	// Re-check under the mutex: KernelClose() may have closed the host handle since the check above.
+	if (!file->opened) {
+		return KERNEL_ERROR_EBADF;
+	}
 
 	if (!file->directory && file->f.IsInvalid()) {
 		LOGF("\tfile is invalid\n");
@@ -1313,6 +1349,12 @@ int KYTY_SYSV_ABI KernelFstat(int d, FileStat* sb) {
 		stat.st_blocks  = 0;
 	} else if (!file->directory) {
 		file->mutex.Lock();
+		// Re-check under the mutex: KernelClose() may have closed the host handle since the check above.
+		if (!file->opened) {
+			file->mutex.Unlock();
+			return KERNEL_ERROR_EBADF;
+		}
+
 
 		bool is_invalid = file->f.IsInvalid();
 		auto size       = file->f.Size();
@@ -1375,6 +1417,10 @@ int KYTY_SYSV_ABI KernelFtruncate(int d, int64_t length) {
 	}
 
 	Common::LockGuard lock(file->mutex);
+	// Re-check under the mutex: KernelClose() may have closed the host handle since the check above.
+	if (!file->opened) {
+		return KERNEL_ERROR_EBADF;
+	}
 
 	if (file->f.IsInvalid() || !file->f.Truncate(static_cast<uint64_t>(length))) {
 		return KERNEL_ERROR_EIO;
