@@ -1918,6 +1918,20 @@ void RuntimeLinker::ParseProgramDynamicInfo(Program* program) {
 			EXIT_NOT_IMPLEMENTED(symtab_addr < program->base_vaddr);
 			symtab_offset = symtab_addr - program->base_vaddr;
 			region_size   = program->mapped_size;
+
+			// A standard SysV ELF has no DT_OS_SYMTABSZ; the symbol count is nchain in the
+			// DT_HASH header. Derive the size from it so relocations are bounded as well.
+			if (program->dynamic_info->symbol_table_total_size == 0 &&
+			    program->dynamic_info->hash_table != nullptr && elf->GetDynValue(DT_HASH) != nullptr) {
+				const auto hash_addr = reinterpret_cast<uint64_t>(program->dynamic_info->hash_table);
+				EXIT_NOT_IMPLEMENTED(hash_addr < program->base_vaddr);
+				const auto hash_offset = hash_addr - program->base_vaddr;
+				EXIT_NOT_IMPLEMENTED(hash_offset > region_size ||
+				                     2 * sizeof(uint32_t) > region_size - hash_offset);
+				const auto nchain = reinterpret_cast<const uint32_t*>(hash_addr)[1];
+				program->dynamic_info->symbol_table_total_size =
+				    static_cast<uint64_t>(nchain) * sizeof(Elf64_Sym);
+			}
 		}
 		EXIT_NOT_IMPLEMENTED(program->dynamic_info->symbol_table_total_size % sizeof(Elf64_Sym) != 0);
 		EXIT_NOT_IMPLEMENTED(symtab_offset > region_size ||
