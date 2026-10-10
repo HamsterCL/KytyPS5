@@ -825,6 +825,9 @@ static RelocationInfo GetRelocationInfo(Elf64_Rela* r, Program* program) {
 		case R_X86_64_GLOB_DAT:
 		case R_X86_64_JUMP_SLOT: addend = 0; [[fallthrough]];
 		case R_X86_64_64: {
+			EXIT_NOT_IMPLEMENTED(
+			    symbols == nullptr ||
+			    symbol >= program->dynamic_info->symbol_table_total_size / sizeof(Elf64_Sym));
 			auto         sym          = symbols[symbol];
 			auto         bind         = sym.GetBind();
 			auto         sym_type     = sym.GetType();
@@ -1726,7 +1729,8 @@ void RuntimeLinker::LoadProgramToMemory(Program* program) {
 			uint64_t segment_addr        = phdr[i].p_vaddr + program->base_vaddr;
 			uint64_t segment_file_size   = phdr[i].p_filesz;
 			uint64_t segment_memory_size = GetAlignedSize(phdr + i);
-			auto     mode                = GetMode(phdr[i].p_flags);
+			EXIT_NOT_IMPLEMENTED(phdr[i].p_filesz > phdr[i].p_memsz);
+			auto     mode               = GetMode(phdr[i].p_flags);
 
 			LOGF("[%d] addr        = 0x%016" PRIx64 "\n"
 			     "[%d] file_size   = %" PRIu64 "\n"
