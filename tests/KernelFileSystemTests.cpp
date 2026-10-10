@@ -1553,7 +1553,8 @@ void CheckSocketWakeup() {
     uint32_t size = sizeof(actual);
     Check(net_setsockopt(datagram, 0xffff, 0x20, &value, sizeof(value)) == 0 &&
               net_getsockopt(datagram, 0xffff, 0x20, &actual, &size) == 0 &&
-              actual == value && size == sizeof(actual),
+              // BSD hosts report a set boolean option as its flag value, not 1.
+              (actual != 0) == (value != 0) && size == sizeof(actual),
           "Net UDP broadcast option can be enabled and disabled");
   }
   int timeout = 0;
