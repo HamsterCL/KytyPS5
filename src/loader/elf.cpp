@@ -344,6 +344,7 @@ void Elf64::Clear() {
 	m_str_table_size = 0;
 	m_dynamic.reset();
 	m_dynamic_data.reset();
+	m_dynamic_data_size = 0;
 }
 
 void Elf64::DbgDump(const std::string& folder) {
@@ -579,7 +580,8 @@ void Elf64::Open(const std::filesystem::path& file_name) {
 					m_dynamic = LoadDynamic64(this, m_phdr[i].p_offset, m_phdr[i].p_filesz);
 					break;
 				case PT_OS_DYNLIBDATA:
-					m_dynamic_data = LoadDynamic64(this, m_phdr[i].p_offset, m_phdr[i].p_filesz);
+					m_dynamic_data      = LoadDynamic64(this, m_phdr[i].p_offset, m_phdr[i].p_filesz);
+					m_dynamic_data_size = m_phdr[i].p_filesz;
 					break;
 				default: break;
 			}

@@ -287,6 +287,7 @@ public:
 		return (m_dynamic_data == nullptr ? nullptr
 		                                  : reinterpret_cast<T>(m_dynamic_data.get() + offset));
 	}
+	[[nodiscard]] uint64_t GetDynamicDataSize() const { return m_dynamic_data_size; }
 
 private:
 	void Clear();
@@ -299,6 +300,7 @@ private:
 	std::unique_ptr<Elf64_Shdr[]>  m_shdr;
 	std::unique_ptr<uint8_t[]>     m_dynamic;
 	std::unique_ptr<uint8_t[]>     m_dynamic_data;
+	uint64_t                       m_dynamic_data_size = 0;
 	std::unique_ptr<char[]>        m_str_table;
 	uint32_t                       m_str_table_size = 0;
 	// uint64_t    m_base_vaddr   = 0;
