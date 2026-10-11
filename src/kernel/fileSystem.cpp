@@ -21,6 +21,7 @@
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
+#include <memory>
 #include <new>
 #include <random>
 #include <system_error>
@@ -1058,24 +1059,23 @@ int64_t KYTY_SYSV_ABI KernelWritev(int d, const KernelIovec* iov, int iovcnt) {
 
 	if (::Libs::Network::Net::IsSocket(d)) {
 		// A datagram socket sends one message per call, so gather the vectors and send them together.
-		std::vector<uint8_t> gathered;
-		// The total can be close to INT_MAX; do not let an allocation failure escape the guest ABI boundary.
-		try {
-			gathered.reserve(total);
-			for (const auto& buffer: buffers) {
-				if (buffer.iov_len == 0) {
-					continue;
-				}
-				const auto* bytes = static_cast<const uint8_t*>(buffer.iov_base);
-				gathered.insert(gathered.end(), bytes, bytes + buffer.iov_len);
-			}
-		} catch (const std::bad_alloc&) {
-			return KERNEL_ERROR_ENOMEM;
-		}
-		if (gathered.empty()) {
+		// The total can be close to INT_MAX and exceptions are disabled, so use a non-throwing allocation.
+		if (total == 0) {
 			return 0;
 		}
-		const auto result = ::Libs::Network::Net::Send(d, gathered.data(), gathered.size(), 0);
+		std::unique_ptr<uint8_t[]> gathered(new (std::nothrow) uint8_t[static_cast<size_t>(total)]);
+		if (!gathered) {
+			return KERNEL_ERROR_ENOMEM;
+		}
+		size_t gathered_size = 0;
+		for (const auto& buffer: buffers) {
+			if (buffer.iov_len == 0) {
+				continue;
+			}
+			std::memcpy(gathered.get() + gathered_size, buffer.iov_base, buffer.iov_len);
+			gathered_size += buffer.iov_len;
+		}
+		const auto result = ::Libs::Network::Net::Send(d, gathered.get(), gathered_size, 0);
 		return (result < 0 ? PosixToKernel(*Posix::GetErrorAddr()) : static_cast<int64_t>(result));
 	}
 
