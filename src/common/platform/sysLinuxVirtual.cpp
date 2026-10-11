@@ -253,7 +253,8 @@ static bool is_mapped(void* ptr, size_t length) {
 	return region_addr < (query_addr + length);
 }
 #else
-static bool is_mapped(void* ptr, size_t length) {
+// Only used when MAP_FIXED_NOREPLACE is unavailable.
+[[maybe_unused]] static bool is_mapped(void* ptr, size_t length) {
 	FILE* file = fopen("/proc/self/maps", "r");
 	char  line[1024];
 	bool  ret  = false;

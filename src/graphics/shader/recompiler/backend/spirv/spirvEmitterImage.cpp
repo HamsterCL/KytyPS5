@@ -214,6 +214,7 @@ uint32_t SampledComponentZero(EmitterState& state, Prospero::TextureNumericClass
 		case Prospero::TextureNumericClass::Unsupported: break;
 	}
 	EXIT("invalid sampled image numeric class");
+	__builtin_unreachable(); // EXIT never returns
 }
 
 uint32_t ResultVector(ValueEmitContext& ctx, uint32_t value,

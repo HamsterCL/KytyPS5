@@ -1502,6 +1502,7 @@ static uint8_t CopyDataDstToDma(uint32_t dst) {
 	}
 
 	EXIT("unsupported copyData destination selector 0x%02" PRIx32 "\n", dst);
+	__builtin_unreachable(); // EXIT never returns
 }
 
 static uint8_t CopyDataSrcToDma(uint32_t src) {
@@ -1518,6 +1519,7 @@ static uint8_t CopyDataSrcToDma(uint32_t src) {
 	}
 
 	EXIT("unsupported copyData source selector 0x%02" PRIx32 "\n", src);
+	__builtin_unreachable(); // EXIT never returns
 }
 
 KYTY_CP_OP_PARSER(CpOpCopyData) {

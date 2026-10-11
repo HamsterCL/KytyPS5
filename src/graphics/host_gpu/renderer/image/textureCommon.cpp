@@ -75,6 +75,7 @@ RenderTargetFormatInfo TextureGetRenderTargetFormat(Prospero::ChannelLayout layo
 	}
 	EXIT("unsupported render-target format combination: layout=%u type=%u order=%u\n",
 	     static_cast<uint32_t>(layout), static_cast<uint32_t>(type), static_cast<uint32_t>(order));
+	__builtin_unreachable(); // EXIT never returns
 }
 
 vk::ComponentMapping TextureGetComponentMapping(uint32_t                        swizzle,
@@ -109,6 +110,7 @@ SurfaceFormatInfo TextureGetSurfaceFormatInfo(Prospero::BufferFormat format) {
 		return {host_format.format, conversion_format, host_format.host_to_storage};
 	}
 	EXIT("unknown format: fmt = %u\n", static_cast<uint32_t>(format));
+	__builtin_unreachable(); // EXIT never returns
 }
 
 } // namespace Libs::Graphics

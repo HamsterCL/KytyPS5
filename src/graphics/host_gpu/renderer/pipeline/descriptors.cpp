@@ -73,6 +73,7 @@ vk::DescriptorType NativeDescriptorType(BindingKind kind) {
 		case BindingKind::Count: EXIT("invalid native descriptor binding kind");
 	}
 	EXIT("invalid native descriptor binding kind");
+	__builtin_unreachable(); // EXIT never returns
 }
 
 vk::DescriptorImageInfo MakeImageInfo(const TextureBinding& texture, uint32_t element) {

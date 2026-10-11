@@ -69,6 +69,7 @@ vk::PolygonMode ResolvePolygonMode(const HW::ModeControl& mode, bool cull_front,
 		case 2: return vk::PolygonMode::eFill;
 		default: EXIT("Pipeline: invalid polygon mode %u\n", polygon_mode);
 	}
+	__builtin_unreachable(); // EXIT never returns
 }
 
 std::string DriverCacheSignature(const vk::PhysicalDeviceProperties& properties) {

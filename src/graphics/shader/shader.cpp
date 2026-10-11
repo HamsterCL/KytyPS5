@@ -77,6 +77,7 @@ static ShaderMapEntry ShaderGetMappedData(uint64_t addr, const char* label) {
 	}
 
 	EXIT("%s shader=0x%016" PRIx64 " is missing from ShaderMap\n", label, addr);
+	__builtin_unreachable(); // EXIT never returns
 }
 
 static ShaderParams GetShaderParams(uint64_t shader_addr, uint64_t hash,

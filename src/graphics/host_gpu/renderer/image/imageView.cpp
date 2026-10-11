@@ -293,6 +293,7 @@ vk::ImageAspectFlags DepthAspectMask(vk::Format format) {
 			return vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
 		default: EXIT("unsupported depth/stencil image format: %d\n", static_cast<int>(format));
 	}
+	__builtin_unreachable(); // EXIT never returns
 }
 
 bool FormatsCompatible(vk::Format base, vk::Format view) noexcept {

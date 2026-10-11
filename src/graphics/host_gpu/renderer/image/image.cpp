@@ -28,6 +28,7 @@ namespace {
 		case Prospero::ImageType::kColor2D: return vk::ImageType::e2D;
 		default: EXIT("non-base image type: %u\n", static_cast<uint32_t>(type));
 	}
+	__builtin_unreachable(); // EXIT never returns
 }
 
 [[nodiscard]] vk::ImageCreateFlags ImageCreateFlags(const GraphicContext& graphics,
@@ -681,6 +682,7 @@ Prospero::BufferFormat RenderTargetTransferFormat(uint32_t bytes_per_element) {
 		case 16: return Prospero::BufferFormat::k32_32_32_32Float;
 		default: EXIT("unsupported render-target element size: %u\n", bytes_per_element);
 	}
+	__builtin_unreachable(); // EXIT never returns
 }
 
 } // namespace ImageOps

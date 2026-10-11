@@ -29,6 +29,7 @@ const Decoder::Operand& Translator::SourceAt(const Decoder::Instruction& inst, u
 		case 3: return inst.src3;
 		default: EXIT("decoded source operand index is out of range");
 	}
+	__builtin_unreachable(); // EXIT never returns
 }
 
 Decoder::Operand Translator::DestinationOperand(const Decoder::Instruction& inst) {
@@ -161,6 +162,7 @@ IR::U32 Translator::ReadRawU32(const Decoder::Operand& operand) {
 		}
 		default: EXIT("invalid decoded operand used as a raw U32 source");
 	}
+	__builtin_unreachable(); // EXIT never returns
 }
 
 // Scalar operands share one encoded namespace with VCC, M0, and EXEC aliases.
