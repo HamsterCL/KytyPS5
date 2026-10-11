@@ -1904,6 +1904,41 @@ void RuntimeLinker::ParseProgramDynamicInfo(Program* program) {
 	GetDynDataOs(elf, &program->dynamic_info->symbol_table, DT_OS_SYMTAB);
 	GetDynData(elf, program->base_vaddr, &program->dynamic_info->symbol_table, DT_SYMTAB);
 	GetDynValue(elf, &program->dynamic_info->symbol_table_total_size, DT_OS_SYMTABSZ);
+
+	// The symbol table must lie inside its backing buffer: the dynamic-data
+	// allocation for DT_OS_SYMTAB, the mapped program otherwise.
+	if (program->dynamic_info->symbol_table != nullptr) {
+		const auto symtab_addr = reinterpret_cast<uint64_t>(program->dynamic_info->symbol_table);
+		uint64_t   symtab_offset = 0;
+		uint64_t   region_size   = 0;
+		if (const auto* os_symtab = elf->GetDynValue(DT_OS_SYMTAB); os_symtab != nullptr) {
+			symtab_offset = os_symtab->d_un.d_ptr;
+			region_size   = elf->GetDynamicDataSize();
+		} else {
+			EXIT_NOT_IMPLEMENTED(symtab_addr < program->base_vaddr);
+			symtab_offset = symtab_addr - program->base_vaddr;
+			region_size   = program->mapped_size;
+
+			// A standard SysV ELF has no DT_OS_SYMTABSZ; the symbol count is nchain in the
+			// DT_HASH header. Derive the size from it so relocations are bounded as well.
+			if (program->dynamic_info->symbol_table_total_size == 0 &&
+			    program->dynamic_info->hash_table != nullptr && elf->GetDynValue(DT_HASH) != nullptr) {
+				const auto hash_addr = reinterpret_cast<uint64_t>(program->dynamic_info->hash_table);
+				EXIT_NOT_IMPLEMENTED(hash_addr < program->base_vaddr);
+				const auto hash_offset = hash_addr - program->base_vaddr;
+				EXIT_NOT_IMPLEMENTED(hash_offset > region_size ||
+				                     2 * sizeof(uint32_t) > region_size - hash_offset);
+				const auto nchain = reinterpret_cast<const uint32_t*>(hash_addr)[1];
+				program->dynamic_info->symbol_table_total_size =
+				    static_cast<uint64_t>(nchain) * sizeof(Elf64_Sym);
+			}
+		}
+		EXIT_NOT_IMPLEMENTED(program->dynamic_info->symbol_table_total_size % sizeof(Elf64_Sym) != 0);
+		EXIT_NOT_IMPLEMENTED(symtab_offset > region_size ||
+		                     program->dynamic_info->symbol_table_total_size >
+		                         region_size - symtab_offset);
+	}
+
 	GetDynValue(elf, &program->dynamic_info->symbol_table_entry_size, DT_OS_SYMENT);
 	GetDynValue(elf, &program->dynamic_info->symbol_table_entry_size, DT_SYMENT);
 
