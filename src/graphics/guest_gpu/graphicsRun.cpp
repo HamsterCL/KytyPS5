@@ -670,6 +670,8 @@ void CommandProcessor::SuspendPm4() {
 	g_current_execution->m_suspended = true;
 }
 
+// Walks the PM4 command buffer and dispatches each packet to its handler; a packet whose declared
+// length is zero or exceeds the remaining dwords is rejected before dispatch.
 void CommandProcessor::ProcessPm4(Pm4Execution& execution) {
 	while (!execution.m_buffer_stack.empty()) {
 		if (g_gpu_state != nullptr) {
@@ -747,6 +749,12 @@ void CommandProcessor::ProcessPm4(Pm4Execution& execution) {
 			EXIT("unknown op\n\t%05" PRIx32 ":\n\tcmd_id = %08" PRIx32 "\n",
 			     total_dw - remaining_dw, packet_header);
 		}
+
+		// Every handler processes at most the packet's own declared length; reject a
+		// packet that claims to be longer than what's actually left in the command
+		// buffer before dispatch, so a handler can never read past the command span.
+		const auto declared_packet_dw = KYTY_PM4_LEN(packet_header);
+		EXIT_NOT_IMPLEMENTED(declared_packet_dw == 0 || declared_packet_dw > remaining_dw);
 
 		const auto packet_dw =
 		    handler(*this, packet_header & ~1u, packet + 1, remaining_dw, total_dw) + 1;
