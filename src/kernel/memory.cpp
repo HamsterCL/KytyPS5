@@ -918,6 +918,9 @@ void InvalidateMemory(uint64_t vaddr, uint64_t size) {
 	if (size == 0) {
 		return;
 	}
+	if (g_gpu_resources == nullptr) {
+		return;
+	}
 	(void)GetGpuResources().InvalidateMemory(vaddr, size);
 }
 
