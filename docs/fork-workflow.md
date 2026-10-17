@@ -88,14 +88,14 @@ La config de CI de referencia es `.github/workflows/build.yml`.
 ctest --test-dir _Build/windows --output-on-failure -R "^(audio_out2_port|pad_haptics|controller_settings|host_input|ime_dialog|lru_cache|resource_tracking|scalar_provenance|resource_materialization|shader_vertex_metadata|archive_file|avplayer_file|kernel_file_system|virtual_memory_allocation)$"
 ```
 
-Estado en `integrated` (commit `de54c2dd`): **14 de 14 pasan**.
+Estado en `integrated` (commit `113b44f5`): **14 de 14 pasan**.
 
 ### Caso `kernel_file_system` en Windows
 
 El check "path truncate errors preserve file size and descriptor position" esperaba `ENOTDIR` para
 `truncate("/savedata0/archivo.dat/child")`. En Windows `std::filesystem::status` informa "no existe"
 y `KernelTruncate` devolvía `ENOENT`. Con la STL de Visual Studio 18 falla también en `origin/main`
-sin cambios propios. Arreglo en `integrated` (`de54c2dd`): `KernelTruncate` revisa si algún directorio
+sin cambios propios. Arreglo en `integrated` (`113b44f5`): `KernelTruncate` revisa si algún directorio
 padre es un archivo regular y en ese caso devuelve `ENOTDIR`.
 
 ## Historial de cambios del fork
@@ -103,6 +103,7 @@ padre es un archivo regular y en ese caso devuelve `ENOTDIR`.
 | Fecha | Cambio |
 |---|---|
 | 2026-10-16 | Fork sincronizado con `upstream/main`. Clon en `D:\EmuPS5` y remoto `upstream` agregado. |
-| 2026-10-16 | `main` mergeado en `integrated` (`25a0f37b`), 3 conflictos resueltos. |
+| 2026-10-16 | `main` mergeado en `integrated` (`d7cc0793`), 3 conflictos resueltos. |
 | 2026-10-16 | Setup de build en Windows y primera compilación completa. |
-| 2026-10-16 | Fix de `KernelTruncate` (`ENOTDIR`) en `integrated` (`de54c2dd`). |
+| 2026-10-16 | Fix de `KernelTruncate` (`ENOTDIR`) en `integrated` (`113b44f5`). |
+| 2026-10-16 | PR del fix a upstream: https://github.com/KytyPS5/KytyPS5/pull/1577 (rama `fix/truncate-enotdir`). Historia de `integrated` reescrita para quitar trailers de atribución; los hashes actuales son los de esta tabla y de `CLAUDE.md`. |

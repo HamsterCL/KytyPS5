@@ -12,18 +12,18 @@ Windows 11, shell PowerShell. Idioma de trabajo con el usuario: español.
 - `origin` = fork (HamsterCL/KytyPS5), `upstream` = KytyPS5/KytyPS5.
 - `main` es espejo de `upstream/main`: no se le hacen commits propios.
 - `integrated` tiene los cambios propios. Se actualiza con **merge** de `origin/main` (no rebase).
-- Estado a 2026-10-16: `integrated` en `de54c2dd`, publicado en `origin/integrated`.
+- Estado a 2026-10-16: `integrated` en `113b44f5`, publicado en `origin/integrated`.
 
 ## Lo realizado hasta ahora
 
 1. Se sincronizó `main` del fork con upstream usando `gh repo sync`.
 2. Se clonó el fork en `D:\EmuPS5` y se agregó el remoto `upstream`.
-3. Se mergeó `origin/main` en `integrated` (`25a0f37b`). Conflictos resueltos en
+3. Se mergeó `origin/main` en `integrated` (`d7cc0793`). Conflictos resueltos en
    `.github/workflows/build.yml`, `spirvEmitterFlow.cpp` y `src/kernel/fileSystem.cpp`
    (detalle en `docs/fork-workflow.md`).
 4. Se instaló el toolchain de build y se compiló `launcher` más los targets de test.
 5. Se verificó que `kernel_file_system` fallaba también en `origin/main` con este toolchain, y se
-   arregló `KernelTruncate` para devolver `ENOTDIR` cuando un padre es un archivo regular (`de54c2dd`).
+   arregló `KernelTruncate` para devolver `ENOTDIR` cuando un padre es un archivo regular (`113b44f5`).
 6. Resultado: 14 de 14 tests pasan en `integrated`.
 
 ## Compilar y probar (Windows)
@@ -47,4 +47,7 @@ Windows 11, shell PowerShell. Idioma de trabajo con el usuario: español.
 - `integrated` ya está en uso en `D:\EmuPS5`, así que un worktree de esa rama debe ir con `--detach`.
 - Vigilar en futuros merges la resolución de `EmitConditionRef` en `spirvEmitterFlow.cpp`
   (se usó `Result(inst)` de `main` en vez del `const_cast` de `integrated`).
-- Posible trabajo pendiente: proponer el fix de `KernelTruncate` como PR a `KytyPS5/KytyPS5`.
+- PR del fix de `KernelTruncate` abierto: https://github.com/KytyPS5/KytyPS5/pull/1577 (rama `fix/truncate-enotdir`, parte de `upstream/main`).
+  Con este toolchain `kernel_file_system` sigue fallando en `main` en otro check ("Net unknown socket options...").
+- Los PR a upstream salen siempre de una rama aparte basada en `upstream/main`, nunca de `integrated`.
+- Commits y PR solo con el nombre del usuario: sin trailers `Co-Authored-By` ni menciones a la IA.
