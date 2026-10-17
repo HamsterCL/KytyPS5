@@ -51,3 +51,5 @@ Windows 11, shell PowerShell. Idioma de trabajo con el usuario: español.
   Con este toolchain `kernel_file_system` sigue fallando en `main` en otro check ("Net unknown socket options...").
 - Los PR a upstream salen siempre de una rama aparte basada en `upstream/main`, nunca de `integrated`.
 - Commits y PR solo con el nombre del usuario: sin trailers `Co-Authored-By` ni menciones a la IA.
+- El aviso de GitHub "had recent pushes" en `integrated` no es un PR ni se puede cerrar; se ignora (ver `docs/fork-workflow.md`).
+- Worktree auxiliar `D:\EmuPS5_integrated` (detached) puede borrarse con `git worktree remove --force D:\EmuPS5_integrated`.

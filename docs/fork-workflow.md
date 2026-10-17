@@ -49,6 +49,31 @@ git push origin integrated
 | `src/graphics/shader/recompiler/backend/spirv/spirvEmitterFlow.cpp` | Se usó `Result(inst)` de `main` en `EmitConditionRef`. Se descartó el `const_cast` de `integrated`; conviene vigilar que no reaparezca el problema de la condición constante `true`. |
 | `src/kernel/fileSystem.cpp` | Ambas ramas implementaban `Writev`/`Pwritev` y `Truncate`. Se conservó la versión de `main` y los comentarios de `integrated`. |
 
+## Pull requests hacia upstream
+
+- Cada PR sale de una **rama aparte basada en `upstream/main`**, nunca de `integrated` (arrastraría los
+  commits propios del fork).
+- Flujo usado para el fix de `KernelTruncate` (PR #1577):
+
+```
+git fetch upstream
+git checkout -b fix/<tema> upstream/main
+git cherry-pick <commit>          # o commitear directo
+git push -u origin fix/<tema>
+gh pr create -R KytyPS5/KytyPS5 --base main --head HamsterCL:fix/<tema> --title "..." --body-file pr.md
+```
+
+- Commits y descripciones de PR van solo con el nombre del autor, sin trailers `Co-Authored-By` ni
+  menciones a la IA.
+- El aviso de GitHub "`<rama>` had recent pushes ... Compare & pull request" aparece solo para ramas con
+  pushes de la última hora; no es un PR, no se puede descartar y desaparece solo. No pulsarlo en `integrated`.
+
+### PR abiertos
+
+| PR | Rama | Estado |
+|---|---|---|
+| [#1577](https://github.com/KytyPS5/KytyPS5/pull/1577) | `fix/truncate-enotdir` | Abierto. `KernelTruncate` devuelve `ENOTDIR` si un padre es un archivo regular. Con este toolchain `kernel_file_system` sigue fallando en `main` en otro check ("Net unknown socket options return protocol-option errors"), ajeno al PR. |
+
 ## Compilar en Windows
 
 ### Requisitos instalados en esta máquina
@@ -107,3 +132,4 @@ padre es un archivo regular y en ese caso devuelve `ENOTDIR`.
 | 2026-10-16 | Setup de build en Windows y primera compilación completa. |
 | 2026-10-16 | Fix de `KernelTruncate` (`ENOTDIR`) en `integrated` (`113b44f5`). |
 | 2026-10-16 | PR del fix a upstream: https://github.com/KytyPS5/KytyPS5/pull/1577 (rama `fix/truncate-enotdir`). Historia de `integrated` reescrita para quitar trailers de atribución; los hashes actuales son los de esta tabla y de `CLAUDE.md`. |
+| 2026-10-16 | Se aclaró el flujo de PR hacia upstream y el aviso "had recent pushes" de GitHub. |
