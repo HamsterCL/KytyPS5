@@ -25,6 +25,17 @@ Windows 11, shell PowerShell. Idioma de trabajo con el usuario: español.
 5. Se verificó que `kernel_file_system` fallaba también en `origin/main` con este toolchain, y se
    arregló `KernelTruncate` para devolver `ENOTDIR` cuando un padre es un archivo regular (`113b44f5`).
 6. Resultado: 14 de 14 tests pasan en `integrated`.
+7. Primera prueba con Astro Bot: crash en el hilo `SceSndzAudioOutMain` (puntero corrupto con `1.0f` en la
+   mitad alta) y ~13 fps. Se dejó un build limpio de `upstream/main` en `D:\EmuPS5_main` para el A/B.
+8. Se actualizaron 8 submódulos de `3rdparty/` a su último release estable (`b66dd6c7`, rama `deps/update`
+   mergeada en `integrated` y publicada). Compila y 14/14 tests; sin probar en ejecución.
+
+## Para retomar
+
+Leer primero "Estado actual y pendientes" en `docs/fork-workflow.md`. Resumen: falta que el usuario compare
+Astro Bot en `D:\EmuPS5_main\_Build\windows\install` (upstream limpio) contra
+`D:\EmuPS5\_Build\windows\install` (integrated, build anterior a las dependencias nuevas) y reporte crash
+y fps. Según eso: bisecar commits de AJM en `integrated`, reportar a upstream, o probar un build con LTO.
 
 ## Compilar y probar (Windows)
 
@@ -52,4 +63,5 @@ Windows 11, shell PowerShell. Idioma de trabajo con el usuario: español.
 - Los PR a upstream salen siempre de una rama aparte basada en `upstream/main`, nunca de `integrated`.
 - Commits y PR solo con el nombre del usuario: sin trailers `Co-Authored-By` ni menciones a la IA.
 - El aviso de GitHub "had recent pushes" en `integrated` no es un PR ni se puede cerrar; se ignora (ver `docs/fork-workflow.md`).
-- Worktree auxiliar `D:\EmuPS5_integrated` (detached) puede borrarse con `git worktree remove --force D:\EmuPS5_integrated`.
+- Worktree auxiliar vigente: `D:\EmuPS5_main` (detached en `upstream/main`, para el A/B). Borrar con
+  `git worktree remove --force D:\EmuPS5_main` al terminar. `D:\EmuPS5_integrated` ya se borró.
